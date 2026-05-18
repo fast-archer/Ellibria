@@ -1,20 +1,32 @@
 # Python
 __pycache__/
-*.pyc
-*.pyo
+*.py[cod]
+*$py.class
+*.so
+.Python
 venv/
-.env
+env/
+.venv/
 
-# Build artifacts
+# PyInstaller
 build/
 dist/
-*.exe
 *.spec
+*.manifest
+*.exe
 
-# User data
+# Данные пользователя
 .echo-agent/
+config.json
+*.log
 local_data/
+
+# IDE
+.idea/
+.vscode/
+*.swp
 
 # OS
 .DS_Store
 Thumbs.db
+'@ | Out-File -Encoding utf8 .gitignore

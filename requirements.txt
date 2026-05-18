@@ -3,4 +3,4 @@ flask-session
 google-generativeai
 openai
 pywebview
-pillow
+requests

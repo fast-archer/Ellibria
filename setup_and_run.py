@@ -1,4 +1,9 @@
-import os, sys, json, threading, time, tkinter as tk
+import os
+import sys
+import json
+import threading
+import time
+import tkinter as tk
 from tkinter import messagebox
 
 CONFIG_PATH = os.path.join(os.path.expanduser("~"), ".echo-agent", "config.json")
@@ -70,7 +75,7 @@ def show_setup():
     tk.Label(win, text="⬡ Echo", font=("Segoe UI", 26, "bold"),
              bg="#0e0e10", fg="#a78bfa").pack(pady=18)
 
-    tk.Label(win, text="1. Go to  console.groq.com",
+    tk.Label(win, text="1. Go to console.groq.com",
              bg="#0e0e10", fg="#d4d4d8", font=("Segoe UI", 11)).pack()
     tk.Label(win, text="2. Sign up → API Keys → Create key",
              bg="#0e0e10", fg="#d4d4d8", font=("Segoe UI", 11)).pack(pady=2)
@@ -96,13 +101,7 @@ def show_setup():
             pass
         return "break"
 
-    # Ctrl+V — работает на любой раскладке через keycode
-    # keycode 86 = V на любой раскладке
-    entry.bind("<Control-v>", paste_clipboard)
-    entry.bind("<Control-V>", paste_clipboard)
-    win.bind_all("<Control-KeyPress>", lambda e: paste_clipboard() if e.keycode == 86 else None)
-
-    # Правая кнопка — контекстное меню
+    # Контекстное меню по ПКМ (без ломающих глобальных биндингов)
     def show_context_menu(event):
         menu = tk.Menu(win, tearoff=0, bg="#18181b", fg="#d4d4d8",
                        activebackground="#7c3aed", activeforeground="white",
