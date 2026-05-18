@@ -2,8 +2,17 @@
 set -e
 
 echo "🔧 Installing system dependencies..."
-# Для CachyOS/Arch: используем актуальный webkit2gtk
-sudo pacman -Sy --noconfirm python python-pip tk webkit2gtk-4.1 python-pywebview
+
+# Сначала обновим систему (критично для Arch!)
+echo "📦 Updating system packages..."
+sudo pacman -Syu --noconfirm
+
+# Устанавливаем webkit2gtk с флагом --needed (не переустанавливать если есть)
+echo "🌐 Installing webkit2gtk..."
+sudo pacman -S --needed --noconfirm webkit2gtk-4.1 python-pywebview
+
+# Остальные зависимости
+sudo pacman -S --needed --noconfirm python python-pip tk
 
 echo "🌐 Creating virtual environment..."
 if [ -d "venv" ]; then
