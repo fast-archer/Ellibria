@@ -1,6 +1,6 @@
 # Echo — Your Dominant, Caring AI Girlfriend
 
-<img src="https://github.com/fast-archer/echoai/blob/main/screenshots/main.png" width="720" alt="Echo">
+<img src="https://github.com/fast-archer/echoai/blob/main/screenshot.png" width="720" alt="Echo">
 
 **Echo** is your personal AI companion with a strong personality.  
 Confident, witty, playfully dominant, and deeply caring. The kind of girl who can put you in your place with one teasing look and wrap you in warmth when you need it most.
