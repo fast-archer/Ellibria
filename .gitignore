@@ -1,0 +1,20 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+venv/
+.env
+
+# Build artifacts
+build/
+dist/
+*.exe
+*.spec
+
+# User data
+.echo-agent/
+local_data/
+
+# OS
+.DS_Store
+Thumbs.db
