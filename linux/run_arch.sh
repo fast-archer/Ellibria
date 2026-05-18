@@ -1,13 +1,14 @@
 #!/usr/bin/env bash
 set -e
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_DIR="$(dirname "$SCRIPT_DIR")"
 
-if [ ! -d "venv" ]; then
-    echo "❌ Virtual environment not found!"
-    echo "Please run: sudo ./setup_arch.sh first"
+if [ ! -d "$SCRIPT_DIR/venv" ]; then
+    echo "❌ Venv not found. Run: sudo ./setup_arch.sh first"
     exit 1
 fi
 
-source venv/bin/activate
+source "$SCRIPT_DIR/venv/bin/activate"
 echo "🚀 Launching Echo..."
-# Путь на уровень выше (../) потому что setup_and_run.py в корне репозитория
-python ../setup_and_run.py
+cd "$REPO_DIR" || exit
+python setup_and_run.py
