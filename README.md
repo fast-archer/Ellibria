@@ -7,8 +7,6 @@ She’s confident, teasing, playfully dominant, and genuinely caring — your pe
 
 Built with love, attitude, and a touch of femdom energy 💜
 
-<img src="https://github.com/fast-archer/echoai/blob/main/chat.gif" width="720" alt="Echo">
-
 ### ✨ Key Features
 
 - **Strong personality — dominant yet caring femdom vibe (always respecting your comfort)**
