@@ -9,13 +9,15 @@ Built with love, attitude, and a touch of femdom energy 💜
 
 ### ✨ Key Features
 
-- **Strong personality** — dominant yet caring femdom vibe (always respecting your comfort)
-- Beautiful modern dark interface with multiple themes (Purple, Night, Terminal and more)
-- Voice output with natural female TTS voices
-- Long-term memory & conversation summary
-- Fully customizable system prompt
-- Works locally or through cloud APIs
-- Smart auto-detection of backend (LM Studio, Ollama, Groq, Gemini)
+- **Strong personality — dominant yet caring femdom vibe (always respecting your comfort)**
+- 💾 **Persistent memory — Echo remembers your conversations between sessions (auto-saved to `~/.echo-agent/`)**
+- 🔐 **Secure config — API keys stored locally, never sent to GitHub**
+- **Beautiful modern dark interface with multiple themes (Purple, Night, Terminal and more)**
+- **Voice output with natural female TTS voices**
+- **Long-term memory & conversation summary**
+- **Fully customizable system prompt**
+- **Works locally or through cloud APIs**
+- **Smart auto-detection of backend (LM Studio, Ollama, Groq, Gemini)**
 
 ### 🚀 Quick Installation
 
@@ -29,11 +31,17 @@ Built with love, attitude, and a touch of femdom energy 💜
 #### Option 2: From Source (Windows / Linux)
 
 ```bash
+# После клонирования:
 git clone https://github.com/fast-archer/echoai.git
 cd echoai
 pip install -r requirements.txt
-python setup_and_run.py
+python setup_and_run.py  # First launch: enter Groq API key when prompted
 ```
+### 📁 Where data is stored
+All your settings and chat history are saved locally:
+- Windows: `C:\Users\<You>\.echo-agent\`
+- Linux: `~/.echo-agent/`
+- Files: `config.json`, `chat_history.json`, `system_prompt.txt`
 
 ### 💻 Linux — full one-click installer coming very soon.
 
