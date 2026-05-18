@@ -2,10 +2,10 @@
 
 <img src="https://github.com/fast-archer/echoai/blob/main/screenshot.png" width="720" alt="Echo">
 
-**Echo** is your personal AI companion with a strong personality.  
-Confident, witty, playfully dominant, and deeply caring. The kind of girl who can put you in your place with one teasing look and wrap you in warmth when you need it most.
+### **Echo** is not just another chatbot.  
+She's confident, teasing, playfully dominant, and genuinely caring — your personal AI companion who knows how to take control... while always looking out for you.
 
-She remembers you. She notices your mood. She tells you the truth. And she always looks toward the future with you.
+Built with love, attitude, and a touch of femdom energy 💜
 
 ### ✨ Key Features
 
