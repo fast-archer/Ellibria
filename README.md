@@ -40,9 +40,20 @@ python setup_and_run.py  # First launch: enter Groq API key when prompted
 #### Option 3: Arch Linux
 
 ```bash
-git clone https://github.com/fast-archer/echoai.git && cd echoai/linux && chmod +x setup_arch.sh run_arch.sh && sudo ./setup_arch.sh && ./run_arch.sh
+git clone https://github.com/fast-archer/echoai.git
 ```
-
+```bash
+cd echoai/linux
+```
+```bash
+chmod +x setup_arch.sh run_arch.sh
+```
+```bash
+sudo ./setup_arch.sh
+```
+```bash
+./run_arch.sh
+```
 ### 📁 Where data is stored
 All your settings and chat history are saved locally:
 - Windows: `C:\Users\<You>\.echo-agent\`
