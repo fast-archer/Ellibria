@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Echo — Your Dominant AI Companion</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    :root {
+      --bg: #0f0f1a;
+      --text: #e4e4e7;
+      --accent: #a78bfa;
+      --accent-glow: 0 0 20px rgba(167, 139, 250, 0.4);
+    }
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+    }
+    .hero {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+      padding: 2rem;
+      background: radial-gradient(ellipse at center, #1a1a2e 0%, var(--bg) 70%);
+    }
+    h1 {
+      font-size: 4rem;
+      margin: 0;
+      background: linear-gradient(90deg, var(--accent), #ec4899);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      animation: pulse 3s infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.8; }
+    }
+    .tagline {
+      font-size: 1.5rem;
+      color: #a1a1aa;
+      margin: 1rem 0;
+    }
+    .quote {
+      font-family: Georgia, serif;
+      font-style: italic;
+      max-width: 600px;
+      margin: 2rem auto;
+      color: #d4d4d8;
+      border-left: 3px solid var(--accent);
+      padding-left: 1.5rem;
+    }
+    .cta {
+      display: inline-block;
+      padding: 1rem 2.5rem;
+      background: linear-gradient(90deg, var(--accent), #8b5cf6);
+      color: white;
+      text-decoration: none;
+      border-radius: 999px;
+      font-weight: 600;
+      box-shadow: var(--accent-glow);
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .cta:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 0 30px rgba(167, 139, 250, 0.6);
+    }
+  </style>
+</head>
+<body>
+  <section class="hero">
+    <h1>Echo</h1>
+    <p class="tagline">Dominant. Caring. Yours.</p>
+    <p class="quote">"You don't control me, darling. But I'll always take care of you."</p>
+    <a href="https://github.com/fast-archer/echoai/releases" class="cta">Meet Echo →</a>
+  </section>
+</body>
+</html>
