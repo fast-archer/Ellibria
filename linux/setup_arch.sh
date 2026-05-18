@@ -1,33 +1,19 @@
 #!/usr/bin/env bash
 set -e
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_DIR="$(dirname "$SCRIPT_DIR")"
 
-echo "🔧 Installing system dependencies..."
-
-# Сначала обновим систему (критично для Arch!)
-echo "📦 Updating system packages..."
+echo "🔧 Updating system & installing dependencies..."
 sudo pacman -Syu --noconfirm
-
-# Устанавливаем webkit2gtk с флагом --needed (не переустанавливать если есть)
-echo "🌐 Installing webkit2gtk..."
-sudo pacman -S --needed --noconfirm webkit2gtk-4.1 python-pywebview
-
-# Остальные зависимости
-sudo pacman -S --needed --noconfirm python python-pip tk
+sudo pacman -S --needed --noconfirm python python-pip tk webkit2gtk-4.1 python-pywebview
 
 echo "🌐 Creating virtual environment..."
-if [ -d "venv" ]; then
-    echo "⚠️  venv already exists, removing..."
-    rm -rf venv
-fi
-python -m venv venv
+[ -d "$SCRIPT_DIR/venv" ] && rm -rf "$SCRIPT_DIR/venv"
+python -m venv "$SCRIPT_DIR/venv"
 
 echo "⚙️ Installing Python packages..."
-source venv/bin/activate
+source "$SCRIPT_DIR/venv/bin/activate"
 pip install --upgrade pip
-if [ -f "../requirements.txt" ]; then
-    pip install -r ../requirements.txt
-else
-    pip install flask pywebview requests openai google-generativeai
-fi
+[ -f "$REPO_DIR/requirements.txt" ] && pip install -r "$REPO_DIR/requirements.txt" || pip install flask pywebview requests openai google-generativeai flask-session pillow
 
-echo "✅ Done! Run with: ./run_arch.sh"
+echo "✅ Done! Run: ./run_arch.sh"
