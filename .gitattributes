@@ -1,13 +1,20 @@
-cd C:\Users\default1\echoai
+# === Исключить из статистики языков ===
 
-# Создай файл .gitattributes
-@'
-# Исключаем папку docs из статистики языков (это фронтенд-сайт, не логика агента)
+# Документация и сайт
 docs/** linguist-documentation
-docs/** linguist-generated
-'@ | Out-File -Encoding utf8 .gitattributes
+*.md linguist-documentation
+LICENSE linguist-documentation
 
-# Добавь и отправь:
-git add .gitattributes
-git commit -m "chore: exclude docs/ from language stats"
-git push origin main
+# Артефакты сборки
+*.spec linguist-generated
+*.exe linguist-generated
+*.ico linguist-generated
+
+# Конфиги и данные пользователя
+*.json linguist-generated
+*.txt linguist-generated  # кроме requirements.txt
+
+# Временные файлы
+__pycache__/ linguist-generated
+*.pyc linguist-generated
+*.log linguist-generated
