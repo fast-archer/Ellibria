@@ -9,4 +9,5 @@ fi
 
 source venv/bin/activate
 echo "🚀 Launching Echo..."
-python setup_and_run.py
+# Путь на уровень выше (../) потому что setup_and_run.py в корне репозитория
+python ../setup_and_run.py
