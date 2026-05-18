@@ -40,11 +40,7 @@ python setup_and_run.py  # First launch: enter Groq API key when prompted
 #### Option 3: Arch Linux
 
 ```bash
-git clone https://github.com/fast-archer/echoai.git
-cd echoai/linux
-chmod +x setup_arch.sh run_arch.sh
-sudo ./setup_arch.sh
-./run_arch.sh
+git clone https://github.com/fast-archer/echoai.git && cd echoai/linux && chmod +x setup_arch.sh run_arch.sh && sudo ./setup_arch.sh && ./run_arch.sh
 ```
 
 ### 📁 Where data is stored
