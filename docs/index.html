@@ -41,6 +41,45 @@
       line-height: 1.6;
       transition: background 0.3s, color 0.3s;
       overflow-x: hidden;
+      .hero-avatar {
+  position: relative;
+  width: 280px;
+  height: 280px;
+  margin: 2rem auto;
+  border-radius: 50%;
+  overflow: hidden;
+  box-shadow: 0 0 60px rgba(167, 139, 250, 0.5);
+  animation: floatAvatar 6s ease-in-out infinite;
+}
+
+.hero-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  filter: brightness(1.1) contrast(1.05);
+}
+
+.glow-effect {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: radial-gradient(circle at 30% 30%, rgba(167,139,250,0.3), transparent 60%),
+              radial-gradient(circle at 70% 70%, rgba(236,72,153,0.25), transparent 60%);
+  pointer-events: none;
+}
+
+@keyframes floatAvatar {
+  0%, 100% { transform: translateY(0) scale(1); }
+  50% { transform: translateY(-15px) scale(1.02); }
+}
+
+/* Адаптив для мобильных */
+@media (max-width: 640px) {
+  .hero-avatar {
+    width: 200px;
+    height: 200px;
+  }
+}
     }
     /* Анимированный фон */
     .bg-animation {
@@ -203,10 +242,15 @@
       display: flex; align-items: center; gap: 0.8rem;
     }
     .chat-avatar {
-      width: 36px; height: 36px; border-radius: 50%;
-      background: linear-gradient(135deg, var(--accent), var(--accent-2));
-      display: flex; align-items: center; justify-content: center;
-      font-weight: 600; color: white;
+  width: 40px; height: 40px; border-radius: 50%;
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  background-size: cover;
+  background-position: center;
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 600; color: white;
+  border: 2px solid var(--accent);
+  box-shadow: 0 0 10px rgba(167, 139, 250, 0.4);
+}
     }
     .chat-messages { padding: 1.2rem; display: flex; flex-direction: column; gap: 1rem; }
     .msg { max-width: 85%; padding: 0.8rem 1rem; border-radius: 12px; }
@@ -253,6 +297,10 @@
     <!-- Hero -->
     <section class="hero">
       <h1>Echo</h1>
+      <div class="hero-avatar">
+  <img src="images/avatar.jpg" alt="Echo AI Agent" />
+  <div class="glow-effect"></div>
+</div>
       <p class="tagline">Dominant. Caring. Yours.</p>
       <p class="quote">"You don't control me, darling. But I'll always take care of you."</p>
       <div style="display: flex; gap: 1rem; flex-wrap: wrap; justify-content: center;">
@@ -345,7 +393,7 @@
       <h2 style="text-align: center; margin-bottom: 2rem;">💬 See Her in Action</h2>
       <div class="demo-chat">
         <div class="chat-header">
-          <div class="chat-avatar">E</div>
+          <div class="chat-avatar" style="background-image: url('images/avatar.jpg'); background-size: cover; background-position: center;"></div>
           <div>
             <strong>Echo</strong>
             <div style="font-size: 0.85rem; color: var(--text-muted);">online • dominant mode</div>
