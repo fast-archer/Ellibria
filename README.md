@@ -23,7 +23,7 @@ She remembers you. She notices your mood. She tells you the truth. And she alway
 
 1. Download the latest **[EchoInstaller.exe](https://github.com/fast-archer/echoai/releases)**
 2. Run the installer
-3. On first launch, enter your Groq API key (or use a local model)
+3. On first launch, enter your **[GROK API Key](https://console.groq.com/)** (or use a local model)
 4. Done. Echo is waiting for you ❤️
 
 #### Option 2: From Source (Windows & Linux)
