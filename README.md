@@ -26,12 +26,6 @@ She remembers you. She notices your mood. She tells you the truth. And she alway
 3. On first launch, enter your **[GROK API Key](https://console.groq.com/)** (or use a local model)
 4. Done. Echo is waiting for you ❤️
 
-#### Option 2: From Source (Windows & Linux)
+#### Option 2: Linux
 
-```bash
-git clone https://github.com/fast-archer/echoai.git
-cd echoai
-
-pip install -r requirements.txt
-
-python setup_and_run.py
+Currently under development
