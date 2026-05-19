@@ -9,6 +9,11 @@ if [ ! -d "$SCRIPT_DIR/venv" ]; then
 fi
 
 source "$SCRIPT_DIR/venv/bin/activate"
-echo "🚀 Launching Echo in your browser..."
 cd "$REPO_DIR" || exit
-python setup_and_run.py
+
+echo "🚀 Starting Echo..."
+echo "   Browser will open automatically at http://127.0.0.1:5000"
+echo "   Press Ctrl+C to stop."
+echo ""
+
+python setup_and_run_linux.py
