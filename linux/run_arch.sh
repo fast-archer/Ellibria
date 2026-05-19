@@ -1,3 +1,12 @@
+#!/usr/bin/env bash
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Фикс для "замерзающих" кликов в WebKit2GTK на Arch/CachyOS
+export WEBKIT_DISABLE_COMPOSITING_MODE=1
+
+echo "Launching Echo..."
+source "$SCRIPT_DIR/venv/bin/activate"
+python "$SCRIPT_DIR/../setup_and_run.py" linux
 cd ~/echoai/linux && cat > run_arch.sh << 'EOF'
 #!/usr/bin/env bash
 set -e
