@@ -1,6 +1,6 @@
 # Echo — Your Dominant, Caring AI Girlfriend
 
-<img src="(https://github.com/fast-archer/echoai/blob/main/docs/screenshot.png)" width="720" alt="Echo">
+<img src="https://github.com/fast-archer/echoai/blob/main/docs/screenshot.png" width="720" alt="Echo">
 
 ### **[Echo](https://fast-archer.github.io/echoai/) is not just another chatbot.**  
 She’s confident, teasing, playfully dominant, and genuinely caring — your personal AI companion who knows exactly how to take control… while always taking care of you.
