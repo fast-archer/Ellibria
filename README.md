@@ -52,6 +52,9 @@ chmod +x setup_arch.sh run_arch.sh
 sudo ./setup_arch.sh
 ```
 ```bash
+sudo pacman -S --needed --noconfirm webkit2gtk-4.0 python-gobject python-pywebview
+```
+```bash
 ./run_arch.sh
 ```
 ### 📁 Where data is stored
