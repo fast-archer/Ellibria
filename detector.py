@@ -35,6 +35,14 @@ def get_engine():
     from openai import OpenAI
     config = _load_config()
 
+    # Сначала проверяем, есть ли живой ключ прямо в системном окружении процесса
+    env_groq_key = os.environ.get("GROQ_API_KEY", "").strip()
+    # Если в окружении пусто, пробуем взять из config.py
+    groq_key = env_groq_key if env_groq_key else getattr(config, 'GROQ_API_KEY', '').strip()
+
+    env_gemini_key = os.environ.get("GEMINI_API_KEY", "").strip()
+    gemini_key = env_gemini_key if env_gemini_key else getattr(config, 'GEMINI_API_KEY', '').strip()
+
     # 1. LM Studio
     if _ping("http://localhost:1234"):
         print("[AUTO] LM Studio обнаружен → локальная модель")
@@ -54,19 +62,19 @@ def get_engine():
         )
 
     # 3. Gemini Flash
-    if getattr(config, 'GEMINI_API_KEY', ''):
+    if gemini_key:
         print("[AUTO] Gemini Flash API")
         import google.generativeai as genai
-        genai.configure(api_key=config.GEMINI_API_KEY)
+        genai.configure(api_key=gemini_key)
         return None, config.GEMINI_MODEL, "Gemini Flash (cloud)"
 
     # 4. Groq (по умолчанию, если ключ есть)
-    if getattr(config, 'GROQ_API_KEY', ''):
+    if groq_key:
         print("[AUTO] Groq API")
         return (
             OpenAI(
                 base_url="https://api.groq.com/openai/v1",
-                api_key=config.GROQ_API_KEY
+                api_key=groq_key  # <-- Теперь тут гарантированно ЧИСТЫЙ и СВЕЖИЙ ключ!
             ),
             config.GROQ_MODEL,
             "Groq (cloud)"
