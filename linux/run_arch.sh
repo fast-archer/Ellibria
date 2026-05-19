@@ -18,4 +18,4 @@ echo "   Press Ctrl+C to stop."
 echo ""
 
 # Запуск скрипта БЕЗ sudo, чтобы он видел локальные конфиги в ~/.echo-agent/
-python setup_and_run_linux.py
+python setup_and_run.py
