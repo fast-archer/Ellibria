@@ -2,20 +2,13 @@ import os
 import json
 from datetime import datetime
 from flask import Flask, request, jsonify, render_template
+from detector import get_engine
+
 app = Flask(__name__)
 app.secret_key = "echo-secret-key-2026-random"
 
-# Движок инициализируется лениво — при первом запросе
-# чтобы GROQ_API_KEY уже был в os.environ
-_client, _MODEL, _ENGINE = None, None, None
-
-def get_llm():
-    global _client, _MODEL, _ENGINE
-    if _ENGINE is None:
-        from detector import get_engine
-        _client, _MODEL, _ENGINE = get_engine()
-        print(f"✓ Engine: {_ENGINE}, Model: {_MODEL}")
-    return _client, _MODEL, _ENGINE
+# Автодетект движка
+client, MODEL, ENGINE = get_engine()
 
 # Пути к данным пользователя
 DATA_DIR = os.path.join(os.path.expanduser("~"), ".echo-agent")
@@ -96,7 +89,6 @@ def save_memory(user_msg, bot_msg):
 
 # ── Генерация ответа ────────────────────────────────────
 def generate(messages_for_llm):
-    client, MODEL, ENGINE = get_llm()
     if "Gemini" in ENGINE:
         import google.generativeai as genai
         model = genai.GenerativeModel(
@@ -125,7 +117,6 @@ def generate(messages_for_llm):
 # ── Роуты ───────────────────────────────────────────────
 @app.route("/")
 def index():
-    _, _, ENGINE = get_llm()
     return render_template("index.html", engine=ENGINE)
 
 @app.route("/chat", methods=["POST"])
@@ -156,7 +147,7 @@ def chat():
     # Обновляем краткую память
     save_memory(user_msg, bot_msg)
 
-    return jsonify({"response": bot_msg, "engine": get_llm()[2]})
+    return jsonify({"response": bot_msg, "engine": ENGINE})
 
 @app.route("/set_prompt", methods=["POST"])
 def set_prompt():
@@ -189,7 +180,6 @@ def reset():
     return jsonify({"ok": True})
 
 if __name__ == "__main__":
-    _, MODEL, ENGINE = get_llm()
-    print(f"\n✓ Engine: {ENGINE}")
-    print(f"✓ Model: {MODEL}\n")
+    print(f"\n✓ Движок: {ENGINE}")
+    print(f"✓ Модель: {MODEL}\n")
     app.run(debug=False, host="127.0.0.1", port=5000)
