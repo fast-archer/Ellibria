@@ -2,6 +2,7 @@
 docs/** linguist-documentation
 *.md linguist-documentation
 LICENSE linguist-documentation
+*.py linguist-language=Python
 
 # Игнорируем логи и временные файлы
 __pycache__/ linguist-generated
