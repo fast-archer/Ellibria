@@ -28,14 +28,19 @@ Built with love, attitude, and a touch of femdom energy 💜
 3. On first launch enter your **[Groq API Key](https://console.groq.com/keys)** (or connect local model)
 4. Enjoy — Echo is already waiting for you ❤️
 
-#### Option 2: Arch Linux (still doesn't work😥) 
+#### Option 2: Linux / Arch Linux (In Development 🛠️)
+
+> **Note for Arch/CachyOS users:** The native installer is currently being refactored due to strict package management (`pip` PEP 668 environment restrictions) and audio driver dependencies (PipeWire/TTS). 
+
+You can try the experimental setup script, but manual installation via virtual environment (`venv`) is highly recommended for now:
 
 ```bash
 git clone https://github.com/fast-archer/echoai.git
-cd echoai/linux
-chmod +x setup_arch.sh run_arch.sh
-./setup_arch.sh
-./run_arch.sh
+cd echoai
+python -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+python main.py
 ```
 ### 📁 Where data is stored
 All your settings and chat history are saved locally:
