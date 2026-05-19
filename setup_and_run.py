@@ -23,8 +23,11 @@ def set_icon(win):
             pass
 
 def start_flask(api_key):
+    # Сначала жестко прописываем ключ в окружение процесса
     os.environ["GROQ_API_KEY"] = api_key
     os.environ["ECHO_BASE_DIR"] = BASE_DIR
+    
+    # И только ПОСЛЕ этого импортируем app, чтобы detector.py увидел ключ!
     import app as flask_app
     flask_app.app.run(host="127.0.0.1", port=5000, debug=False, use_reloader=False)
 
