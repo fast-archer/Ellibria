@@ -1,22 +1,25 @@
 #!/usr/bin/env bash
 set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_DIR="$(dirname "$SCRIPT_DIR")"
 
-echo "🔧 Updating system..."
-sudo pacman -Syu --noconfirm
+echo "📦 Installing system dependencies via pacman..."
+# sudo запрашивается только здесь и только для системных пакетов
+sudo pacman -S --needed --noconfirm python tk xdg-utils
 
-echo "📦 Installing dependencies..."
-sudo pacman -S --needed --noconfirm python python-pip tk xdg-utils
+echo "🌐 Creating virtual environment (as current user)..."
+if [ -d "$SCRIPT_DIR/venv" ]; then
+    rm -rf "$SCRIPT_DIR/venv"
+fi
 
-echo "🌐 Creating virtual environment..."
-[ -d "$SCRIPT_DIR/venv" ] && rm -rf "$SCRIPT_DIR/venv"
+# Создаем venv с правами текущего пользователя
 python -m venv "$SCRIPT_DIR/venv"
 
 echo "⚙️ Installing Python packages..."
 source "$SCRIPT_DIR/venv/bin/activate"
+
+# Обновляем pip и ставим пакеты локально внутри venv
 pip install --upgrade pip
 pip install flask openai requests
 
 echo ""
-echo "✅ Done! Run: ./run_arch.sh"
+echo "✅ Done! Now you can run: ./run_arch.sh"
