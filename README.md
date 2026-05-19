@@ -55,3 +55,13 @@ All your settings and chat history are saved locally:
 ### 🎨 Customization
 Want her stricter? Softer? More teasing? More romantic?
 Just open Settings and rewrite her system prompt however you like — she adapts perfectly.
+
+## 🌐 Contact
+
+For discussions or suggestions, reach out:
+- **Email**: epidermis_essential@proton.me
+- **Inktree**: [here](https://linktr.ee/fastarcher)
+
+## 📜 License
+
+[![MIT License](https://img.shields.io/badge/License-MIT-green.svg)](https://choosealicense.com/licenses/mit/)
