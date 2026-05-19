@@ -33,7 +33,14 @@ Built with love, attitude, and a touch of femdom energy 💜
 > **Note for Arch/CachyOS users:** The native installer is currently being refactored due to strict package management (`pip` PEP 668 environment restrictions) and audio driver dependencies (PipeWire/TTS). 
 
 You can try the experimental installation script, but at this time it only works on Windows.
-
+```
+git clone https://github.com/fast-archer/echoai.git
+cd echoai
+cd linux
+chmod +x setup_arch.sh run_arch.sh
+./setup_arch.sh
+./run_arch.sh
+```
 ### 📁 Where data is stored
 All your settings and chat history are saved locally:
 - Windows: `C:\Users\<You>\.echo-agent\`
