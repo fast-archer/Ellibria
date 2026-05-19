@@ -8,14 +8,14 @@ if [ ! -d "$SCRIPT_DIR/venv" ]; then
     exit 1
 fi
 
-# Активируем окружение, у которого теперь правильные права доступа
+# Активируем окружение с правильными правами доступа
 source "$SCRIPT_DIR/venv/bin/activate"
 cd "$REPO_DIR" || exit
 
 echo "🚀 Starting Echo..."
-echo "   Browser will open automatically at http://127.0.0.1:5000"
-echo "   Press Ctrl+C to stop."
+echo "   App will launch in a dedicated window."
+echo "   Press Ctrl+C in terminal to stop."
 echo ""
 
-# Запуск скрипта БЕЗ sudo, чтобы он видел локальные конфиги в ~/.echo-agent/
+# Запускаем РЕАЛЬНЫЙ файл из корня репозитория БЕЗ sudo
 python setup_and_run.py
