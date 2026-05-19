@@ -41,20 +41,9 @@ python setup_and_run.py  # First launch: enter Groq API key when prompted
 
 ```bash
 git clone https://github.com/fast-archer/echoai.git
-```
-```bash
 cd echoai/linux
-```
-```bash
 chmod +x setup_arch.sh run_arch.sh
-```
-```bash
-sudo ./setup_arch.sh
-```
-```bash
-sudo pacman -S --needed --noconfirm webkit2gtk-4.0 python-gobject python-pywebview
-```
-```bash
+./setup_arch.sh
 ./run_arch.sh
 ```
 ### 📁 Where data is stored
