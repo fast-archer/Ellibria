@@ -1,10 +1,9 @@
 import os
 import json
 from datetime import datetime
-from flask import Flask, request, jsonify, render_template
-from detector import get_engine
 
-# В app.py после импортов:
+# ── ШАГ 1: Инициализация окружения до любых локальных импортов ──
+# Это гарантирует, что detector.py увидит ключ вовремя!
 DATA_DIR = os.path.join(os.path.expanduser("~"), ".echo-agent")
 CONFIG_PATH = os.path.join(DATA_DIR, "config.json")
 
@@ -13,18 +12,23 @@ if os.path.exists(CONFIG_PATH):
         with open(CONFIG_PATH) as f:
             config_data = json.load(f)
             if "groq_api_key" in config_data:
-                os.environ["GROQ_API_KEY"] = config_data["groq_api_key"]
+                # Жестко вычищаем пробелы и скрытые символы переноса строк Linux/Windows
+                clean_key = str(config_data["groq_api_key"]).strip().replace("\r", "").replace("\n", "")
+                os.environ["GROQ_API_KEY"] = clean_key
     except Exception:
         pass
+
+# ── ШАГ 2: Импорт основных библиотек и автодетектора ──
+from flask import Flask, request, jsonify, render_template
+from detector import get_engine
 
 app = Flask(__name__)
 app.secret_key = "echo-secret-key-2026-random"
 
-# Автодетект движка
+# Автодетект движка (теперь отработает идеально с чистым ключом)
 client, MODEL, ENGINE = get_engine()
 
-# Пути к данным пользователя
-DATA_DIR = os.path.join(os.path.expanduser("~"), ".echo-agent")
+# Пути к пользовательским данным
 MEMORY_PATH = os.path.join(DATA_DIR, "memory.json")
 PROMPT_PATH = os.path.join(DATA_DIR, "system_prompt.txt")
 HISTORY_PATH = os.path.join(DATA_DIR, "chat_history.json")
@@ -127,7 +131,7 @@ def generate(messages_for_llm):
         )
         return resp.choices[0].message.content.strip()
 
-# ── Роуты ───────────────────────────────────────────────
+# ── Роуты Flask ─────────────────────────────────────────
 @app.route("/")
 def index():
     return render_template("index.html", engine=ENGINE)
