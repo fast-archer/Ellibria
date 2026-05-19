@@ -60,7 +60,7 @@ Just open Settings and rewrite her system prompt however you like — she adapts
 
 For discussions or suggestions, reach out:
 - **Email**: epidermis_essential@proton.me
-- **Inktree**: [here](https://linktr.ee/fastarcher)
+- **Discord**: [here](https://discord.gg/yT8e83P4hz)
 
 ## 📜 License
 
