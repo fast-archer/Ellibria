@@ -23,24 +23,15 @@ def set_icon(win):
             pass
 
 def start_flask(api_key):
-    # Сначала жестко прописываем ключ в окружение процесса
     os.environ["GROQ_API_KEY"] = api_key
     os.environ["ECHO_BASE_DIR"] = BASE_DIR
     
-    # И только ПОСЛЕ этого импортируем app, чтобы detector.py увидел ключ!
     import app as flask_app
     flask_app.app.run(host="127.0.0.1", port=5000, debug=False, use_reloader=False)
 
 def open_webview():
-    import webview
-    webview.create_window(
-        "Echo",
-        "http://127.0.0.1:5000",
-        width=920,
-        height=720,
-        resizable=True,
-    )
-    webview.start()
+    import webbrowser
+    webbrowser.open("http://127.0.0.1:5000")
 
 def save_and_launch(key, win):
     k = key.strip()
@@ -57,15 +48,30 @@ def launch(api_key):
     import socket
     t = threading.Thread(target=start_flask, args=(api_key,), daemon=True)
     t.start()
+    
+    # Ждем, пока Flask поднимется
+    server_ready = False
     for _ in range(20):
         time.sleep(0.5)
         try:
             s = socket.create_connection(("127.0.0.1", 5000), timeout=1)
             s.close()
+            server_ready = True
             break
         except OSError:
             continue
-    open_webview()
+            
+    if server_ready:
+        open_webview()
+        
+        # Фикс для Linux: держим основной поток живым, пока процесс не убьют через Ctrl+C
+        try:
+            while True:
+                time.sleep(1)
+        except KeyboardInterrupt:
+            print("\n🛑 Stopping Echo server...")
+    else:
+        print("❌ Error: Failed to start Flask server.")
 
 def show_setup():
     win = tk.Tk()
@@ -104,7 +110,6 @@ def show_setup():
             pass
         return "break"
 
-    # Контекстное меню по ПКМ (без ломающих глобальных биндингов)
     def show_context_menu(event):
         menu = tk.Menu(win, tearoff=0, bg="#18181b", fg="#d4d4d8",
                        activebackground="#7c3aed", activeforeground="white",
@@ -127,11 +132,14 @@ def show_setup():
 
 if __name__ == "__main__":
     if os.path.exists(CONFIG_PATH):
-        with open(CONFIG_PATH) as f:
-            key = json.load(f).get("groq_api_key", "")
-        if key:
-            launch(key)
-        else:
+        try:
+            with open(CONFIG_PATH) as f:
+                key = json.load(f).get("groq_api_key", "")
+            if key:
+                launch(key)
+            else:
+                show_setup()
+        except Exception:
             show_setup()
     else:
         show_setup()
