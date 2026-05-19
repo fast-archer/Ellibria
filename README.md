@@ -32,16 +32,8 @@ Built with love, attitude, and a touch of femdom energy 💜
 
 > **Note for Arch/CachyOS users:** The native installer is currently being refactored due to strict package management (`pip` PEP 668 environment restrictions) and audio driver dependencies (PipeWire/TTS). 
 
-You can try the experimental setup script, but manual installation via virtual environment (`venv`) is highly recommended for now:
+You can try the experimental installation script, but at this time it only works on Windows.
 
-```bash
-git clone https://github.com/fast-archer/echoai.git
-cd echoai
-python -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
-python main.py
-```
 ### 📁 Where data is stored
 All your settings and chat history are saved locally:
 - Windows: `C:\Users\<You>\.echo-agent\`
