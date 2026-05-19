@@ -16,7 +16,8 @@ sudo pacman -S --needed --noconfirm \
 
 echo "🌐 Creating virtual environment..."
 [ -d "$SCRIPT_DIR/venv" ] && rm -rf "$SCRIPT_DIR/venv"
-python -m venv "$SCRIPT_DIR/venv"
+# ДОБАВЛЕН ФЛАГ --system-site-packages ниже:
+python -m venv --system-site-packages "$SCRIPT_DIR/venv"
 
 echo "⚙️ Installing Python packages..."
 source "$SCRIPT_DIR/venv/bin/activate"
