@@ -19,3 +19,7 @@ __pycache__/ linguist-generated
 # ВАЖНО: исключаем только нужные текстовые файлы, 
 # если нужно оставить requirements.txt видимым, просто уберите его из списка
 *.txt linguist-generated
+# Исключаем файлы из статистики (чтобы они не влияли на проценты)
+*.html linguist-detectable=false
+*.json linguist-detectable=false
+*.log linguist-detectable=false
