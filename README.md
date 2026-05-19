@@ -28,16 +28,7 @@ Built with love, attitude, and a touch of femdom energy 💜
 3. On first launch enter your **[Groq API Key](https://console.groq.com/keys)** (or connect local model)
 4. Enjoy — Echo is already waiting for you ❤️
 
-#### Option 2: From Source (Windows / Linux)
-
-```bash
-# После клонирования:
-git clone https://github.com/fast-archer/echoai.git
-cd echoai
-pip install -r requirements.txt
-python setup_and_run.py  # First launch: enter Groq API key when prompted
-```
-#### Option 3: Arch Linux
+#### Option 2: Arch Linux (still doesn't work😥) 
 
 ```bash
 git clone https://github.com/fast-archer/echoai.git
