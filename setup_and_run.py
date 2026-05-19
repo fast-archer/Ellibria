@@ -1,9 +1,4 @@
-import os
-import sys
-import json
-import threading
-import time
-import tkinter as tk
+import os, sys, json, threading, time, tkinter as tk, webbrowser
 from tkinter import messagebox
 
 CONFIG_PATH = os.path.join(os.path.expanduser("~"), ".echo-agent", "config.json")
@@ -28,16 +23,10 @@ def start_flask(api_key):
     import app as flask_app
     flask_app.app.run(host="127.0.0.1", port=5000, debug=False, use_reloader=False)
 
-def open_webview():
-    import webview
-    webview.create_window(
-        "Echo",
-        "http://127.0.0.1:5000",
-        width=920,
-        height=720,
-        resizable=True,
-    )
-    webview.start()
+def open_browser():
+    """Открывает сайт в браузере по умолчанию — работает везде."""
+    time.sleep(2)  # ждём, пока Flask запустится
+    webbrowser.open("http://127.0.0.1:5000")
 
 def save_and_launch(key, win):
     k = key.strip()
@@ -54,15 +43,19 @@ def launch(api_key):
     import socket
     t = threading.Thread(target=start_flask, args=(api_key,), daemon=True)
     t.start()
-    for _ in range(20):
-        time.sleep(0.5)
+    
+    # Ждём, пока сервер поднимется
+    for _ in range(30):
+        time.sleep(0.3)
         try:
-            s = socket.create_connection(("127.0.0.1", 5000), timeout=1)
+            s = socket.create_connection(("127.0.0.1", 5000), timeout=0.5)
             s.close()
             break
         except OSError:
             continue
-    open_webview()
+    
+    # Открываем браузер
+    threading.Thread(target=open_browser, daemon=True).start()
 
 def show_setup():
     win = tk.Tk()
@@ -101,7 +94,9 @@ def show_setup():
             pass
         return "break"
 
-    # Контекстное меню по ПКМ (без ломающих глобальных биндингов)
+    entry.bind("<Control-v>", paste_clipboard)
+    entry.bind("<Control-V>", paste_clipboard)
+
     def show_context_menu(event):
         menu = tk.Menu(win, tearoff=0, bg="#18181b", fg="#d4d4d8",
                        activebackground="#7c3aed", activeforeground="white",
