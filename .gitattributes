@@ -1,20 +1,21 @@
-# === Исключить из статистики языков ===
-
-# Документация и сайт
+# Документация (не считается языком программирования)
 docs/** linguist-documentation
 *.md linguist-documentation
 LICENSE linguist-documentation
 
-# Артефакты сборки
+# Игнорируем логи и временные файлы
+__pycache__/ linguist-generated
+*.pyc linguist-generated
+*.log linguist-generated
+
+# Игнорируем автосгенерированные артефакты
 *.spec linguist-generated
 *.exe linguist-generated
 *.ico linguist-generated
 
-# Конфиги и данные пользователя
+# Игнорируем JSON (кроме случаев, если у вас проект на JSON-языке)
 *.json linguist-generated
-*.txt linguist-generated  # кроме requirements.txt
 
-# Временные файлы
-__pycache__/ linguist-generated
-*.pyc linguist-generated
-*.log linguist-generated
+# ВАЖНО: исключаем только нужные текстовые файлы, 
+# если нужно оставить requirements.txt видимым, просто уберите его из списка
+*.txt linguist-generated
