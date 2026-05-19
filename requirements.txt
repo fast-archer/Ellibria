@@ -2,4 +2,4 @@ flask
 flask-session
 google-generativeai
 openai
-pillow
+requests
