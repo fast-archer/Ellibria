@@ -23,14 +23,19 @@ def set_icon(win):
             pass
 
 def start_flask(api_key):
-    os.environ["GROQ_API_KEY"] = api_key
+    print("\n[DEBUG 1] Скрипт setup_and_run.py запускает поток Flask...")
+    clean_key = str(api_key).strip().replace("\r", "").replace("\n", "")
+    os.environ["GROQ_API_KEY"] = clean_key
     os.environ["ECHO_BASE_DIR"] = BASE_DIR
     
+    print(f"[DEBUG 2] Записано в os.environ в потоке запуска: {clean_key[:12]}...")
+    
     import app as flask_app
-    flask_app.app.run(host="127.0.0.1", port=5000, debug=False, use_reloader=False)
+    flask_app.app.run(host="127.0.0.1", port=5000, debug=True, use_reloader=False)
 
 def open_webview():
     import webbrowser
+    print("[DEBUG 5] Инструкция webbrowser.open отправлена в систему.")
     webbrowser.open("http://127.0.0.1:5000")
 
 def save_and_launch(key, win):
@@ -49,13 +54,14 @@ def launch(api_key):
     t = threading.Thread(target=start_flask, args=(api_key,), daemon=True)
     t.start()
     
-    # Ждем, пока Flask поднимется
+    print("[DEBUG 3] Ожидание поднятия Flask-сервера (пинг порта 5000)...")
     server_ready = False
-    for _ in range(20):
+    for i in range(20):
         time.sleep(0.5)
         try:
             s = socket.create_connection(("127.0.0.1", 5000), timeout=1)
             s.close()
+            print(f"[DEBUG 4] Успешное подключение к порту 5000 на итерации {i}")
             server_ready = True
             break
         except OSError:
@@ -63,8 +69,6 @@ def launch(api_key):
             
     if server_ready:
         open_webview()
-        
-        # Фикс для Linux: держим основной поток живым, пока процесс не убьют через Ctrl+C
         try:
             while True:
                 time.sleep(1)
@@ -136,6 +140,7 @@ if __name__ == "__main__":
             with open(CONFIG_PATH) as f:
                 key = json.load(f).get("groq_api_key", "")
             if key:
+                print(f"[DEBUG 0] Найден существующий config.json. Ключ: {key[:12]}...")
                 launch(key)
             else:
                 show_setup()
