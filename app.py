@@ -1,16 +1,28 @@
-import os, json
+import os
+import json
 from datetime import datetime
 from flask import Flask, request, jsonify, render_template
-
-app = Flask(__name__)  # ✅ __name__
+app = Flask(__name__)
 app.secret_key = "echo-secret-key-2026-random"
 
-from detector import get_engine
-client, MODEL, ENGINE = get_engine()
+# Движок инициализируется лениво — при первом запросе
+# чтобы GROQ_API_KEY уже был в os.environ
+_client, _MODEL, _ENGINE = None, None, None
 
-MEMORY_PATH = os.path.join(os.path.expanduser("~"), ".echo-agent", "memory.json")
-PROMPT_PATH = os.path.join(os.path.expanduser("~"), ".echo-agent", "system_prompt.txt")
-os.makedirs(os.path.dirname(MEMORY_PATH), exist_ok=True)
+def get_llm():
+    global _client, _MODEL, _ENGINE
+    if _ENGINE is None:
+        from detector import get_engine
+        _client, _MODEL, _ENGINE = get_engine()
+        print(f"✓ Engine: {_ENGINE}, Model: {_MODEL}")
+    return _client, _MODEL, _ENGINE
+
+# Пути к данным пользователя
+DATA_DIR = os.path.join(os.path.expanduser("~"), ".echo-agent")
+MEMORY_PATH = os.path.join(DATA_DIR, "memory.json")
+PROMPT_PATH = os.path.join(DATA_DIR, "system_prompt.txt")
+HISTORY_PATH = os.path.join(DATA_DIR, "chat_history.json")
+os.makedirs(DATA_DIR, exist_ok=True)
 
 DEFAULT_PROMPT = """You are Echo. A female character with a strong personality.
 You are dominant, yet caring. Confident, yet not cruel.
@@ -36,17 +48,40 @@ def load_system_prompt():
             with open(PROMPT_PATH, encoding="utf-8") as f:
                 content = f.read().strip()
                 return content if content else DEFAULT_PROMPT
-        except: pass
+        except Exception:
+            pass
     return DEFAULT_PROMPT
 
 SYSTEM_PROMPT = load_system_prompt()
 
+# ── Устойчивая история чата ─────────────────────────────
+def load_chat_history():
+    """Загружает историю из файла, максимум 20 последних пар сообщений."""
+    if os.path.exists(HISTORY_PATH):
+        try:
+            with open(HISTORY_PATH, encoding="utf-8") as f:
+                history = json.load(f)
+                return history[-20:] if isinstance(history, list) else []
+        except Exception:
+            pass
+    return []
+
+def save_chat_history(history):
+    """Сохраняет последние 20 сообщений в файл."""
+    try:
+        with open(HISTORY_PATH, "w", encoding="utf-8") as f:
+            json.dump(history[-20:], f, ensure_ascii=False, indent=2)
+    except Exception as e:
+        print(f"⚠ Не удалось сохранить историю: {e}")
+
+# ── Краткая память (архив диалогов) ─────────────────────
 def load_memory():
     if os.path.exists(MEMORY_PATH):
         try:
             with open(MEMORY_PATH, encoding="utf-8") as f:
                 return json.load(f)
-        except: pass
+        except Exception:
+            pass
     return {"summary": "", "last_seen": None}
 
 def save_memory(user_msg, bot_msg):
@@ -59,7 +94,9 @@ def save_memory(user_msg, bot_msg):
     with open(MEMORY_PATH, "w", encoding="utf-8") as f:
         json.dump(mem, f, ensure_ascii=False, indent=2)
 
-def generate(messages_for_llm):  # ✅ исправлено имя переменной
+# ── Генерация ответа ────────────────────────────────────
+def generate(messages_for_llm):
+    client, MODEL, ENGINE = get_llm()
     if "Gemini" in ENGINE:
         import google.generativeai as genai
         model = genai.GenerativeModel(
@@ -85,8 +122,10 @@ def generate(messages_for_llm):  # ✅ исправлено имя переме�
         )
         return resp.choices[0].message.content.strip()
 
+# ── Роуты ───────────────────────────────────────────────
 @app.route("/")
 def index():
+    _, _, ENGINE = get_llm()
     return render_template("index.html", engine=ENGINE)
 
 @app.route("/chat", methods=["POST"])
@@ -94,33 +133,30 @@ def chat():
     user_msg = request.json.get("message", "").strip()
     if not user_msg:
         return jsonify({"error": "empty"}), 400
-    
-    # Простая история в памяти (без session)
-    history_file = os.path.join(os.path.expanduser("~"), ".echo-agent", "chat_history.json")
-    try:
-        with open(history_file, encoding="utf-8") as f:
-            history = json.load(f)
-    except:
-        history = []
-    
+
+    # Загружаем УСТОЙЧИВУЮ историю из файла
+    history = load_chat_history()
+
     messages = [
         {"role": "system", "content": SYSTEM_PROMPT},
-        *history[-20:],
+        *history,
         {"role": "user", "content": user_msg}
     ]
-    
+
     try:
         bot_msg = generate(messages)
     except Exception as e:
-        return jsonify({"error": f"Engine error: {str(e)}"}), 503
-    
+        return jsonify({"error": f"Ошибка движка: {str(e)}"}), 503
+
+    # Обновляем и сохраняем историю
     history.append({"role": "user", "content": user_msg})
     history.append({"role": "assistant", "content": bot_msg})
-    with open(history_file, "w", encoding="utf-8") as f:
-        json.dump(history[-20:], f, ensure_ascii=False)
-    
+    save_chat_history(history)
+
+    # Обновляем краткую память
     save_memory(user_msg, bot_msg)
-    return jsonify({"response": bot_msg, "engine": ENGINE})
+
+    return jsonify({"response": bot_msg, "engine": get_llm()[2]})
 
 @app.route("/set_prompt", methods=["POST"])
 def set_prompt():
@@ -129,10 +165,10 @@ def set_prompt():
     if new_prompt:
         SYSTEM_PROMPT = new_prompt
         try:
-            os.makedirs(os.path.dirname(PROMPT_PATH), exist_ok=True)
             with open(PROMPT_PATH, "w", encoding="utf-8") as f:
                 f.write(new_prompt)
-        except: pass
+        except Exception as e:
+            print(f"Не удалось сохранить промпт: {e}")
     return jsonify({"ok": True})
 
 @app.route("/reset_prompt", methods=["POST"])
@@ -142,16 +178,18 @@ def reset_prompt():
     try:
         with open(PROMPT_PATH, "w", encoding="utf-8") as f:
             f.write(DEFAULT_PROMPT)
-    except: pass
+    except Exception:
+        pass
     return jsonify({"ok": True, "prompt": DEFAULT_PROMPT})
 
 @app.route("/reset", methods=["POST"])
 def reset():
-    history_file = os.path.join(os.path.expanduser("~"), ".echo-agent", "chat_history.json")
-    if os.path.exists(history_file):
-        os.remove(history_file)
+    """Очищает историю чата (но не краткую память memory.json)."""
+    save_chat_history([])
     return jsonify({"ok": True})
 
-if __name__ == "__main__":  # ✅ __name__
-    print(f"\n✓ Engine: {ENGINE}\n✓ Model: {MODEL}\n")
+if __name__ == "__main__":
+    _, MODEL, ENGINE = get_llm()
+    print(f"\n✓ Engine: {ENGINE}")
+    print(f"✓ Model: {MODEL}\n")
     app.run(debug=False, host="127.0.0.1", port=5000)
