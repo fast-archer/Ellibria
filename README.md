@@ -18,7 +18,7 @@ Built with love, attitude, and a touch of femdom energy 💜
 - **Fully customizable system prompt**
 - **Works locally or through cloud APIs**
 - **Smart auto-detection of backend (LM Studio, Ollama, Groq, Gemini)**
-- **Different personalities**
+- **Different personalities (Mistress,Mr.Robot,Pick-me girl,Toxic, Psychotherapist, and Loyal Friend)**
 
 ### 🚀 Quick Installation
 
