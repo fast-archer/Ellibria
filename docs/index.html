@@ -1,562 +1,745 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="dark">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
   <link rel="icon" type="image/x-icon" href="favicon.ico">
-  <title>Echo — Your Dominant AI Companion</title>
-  <meta name="description" content="Echo: confident, teasing, playfully dominant AI companion. Works locally or via cloud APIs.">
-  
+  <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="favicon-192.png">
+  <link rel="apple-touch-icon" sizes="192x192" href="favicon-192.png">
+  <title>Ellibria — AI Agent</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Ellibria: a local-first AI agent with persistent memory, multiple personalities, and full customization. Works with Groq, Gemini, LM Studio and Ollama.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=CommitMono:ital,wght@0,400;0,700;1,400&family=Inter:wght@300;400;500;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Cambria&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
 
   <style>
     :root {
-      --bg: #000000;
-      --bg-secondary: #0a0a0c;
-      --bg-card: #0c0c0e;
-      --border: #1f1f23;
-      --border-hover: #2f2f35;
-      --text: #f4f4f5;
-      --text-muted: #71717a;
+      --bg: #0a0a0a;
+      --bg2: #111111;
+      --bg3: #1a1a1a;
+      --border: #222222;
+      --border-hover: #444444;
+      --text: #f0f0f0;
+      --text2: #888888;
+      --text3: #555555;
       --accent: #ffffff;
-      --font-sans: 'Inter', -apple-system, sans-serif;
-      --font-mono: 'CommitMono', 'Courier New', monospace;
+      --accent-dim: rgba(255,255,255,0.06);
     }
 
-    [data-theme="light"] {
-      --bg: #ffffff;
-      --bg-secondary: #f9f9fb;
-      --bg-card: #ffffff;
-      --border: #e4e4e7;
-      --border-hover: #d4d4d8;
-      --text: #09090b;
-      --text-muted: #71717a;
-      --accent: #000000;
-    }
-
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
 
     body {
-      background-color: var(--bg);
+      font-family: 'DM Sans', sans-serif;
+      background: var(--bg);
       color: var(--text);
-      font-family: var(--font-sans);
-      min-height: 100vh;
-      line-height: 1.5;
+      line-height: 1.6;
       overflow-x: hidden;
-      letter-spacing: -0.01em;
-      transition: background-color 0.3s ease, color 0.3s ease;
+      font-weight: 300;
     }
 
-    /* Сетка на фоне в стиле Omni */
+    /* Noise texture overlay */
     body::before {
-      content: "";
-      position: absolute;
-      top: 0; left: 0; right: 0; height: 100vh;
-      background-image: linear-gradient(var(--border) 1px, transparent 1px), linear-gradient(90deg, var(--border) 1px, transparent 1px);
-      background-size: 80px 80px;
-      background-position: center top;
-      opacity: 0.15;
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+      opacity: 0.4;
       pointer-events: none;
       z-index: 0;
     }
 
+    /* ── HEADER ── */
     header {
-      position: fixed;
-      top: 0; left: 0; right: 0;
-      height: 64px;
-      border-bottom: 1px solid var(--border);
-      background: rgba(var(--bg), 0.7);
+      position: sticky; top: 0;
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 1.2rem 3rem;
+      background: rgba(10,10,10,0.9);
       backdrop-filter: blur(12px);
-      -webkit-backdrop-filter: blur(12px);
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 0 2rem;
+      border-bottom: 1px solid var(--border);
       z-index: 100;
     }
 
-    .logo-container {
-      display: flex;
-      align-items: center;
-      gap: 0.75rem;
-      font-weight: 700;
-      font-size: 1.1rem;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-    }
-
-    .logo-icon {
-      width: 20px;
-      height: 20px;
-      background: var(--text);
-      clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
-    }
-
-    .nav-actions {
-      display: flex;
-      align-items: center;
-      gap: 1rem;
-    }
-
-    .theme-toggle, .btn-secondary-sm {
-      background: transparent;
-      border: 1px solid var(--border);
+    .logo {
+      font-family: 'Cambria', Georgia, serif;
+      font-size: 1.4rem;
       color: var(--text);
-      padding: 0.5rem 0.8rem;
-      border-radius: 4px;
-      cursor: pointer;
-      font-family: var(--font-sans);
-      font-size: 0.85rem;
-      font-weight: 500;
-      transition: all 0.2s;
+      letter-spacing: 0.02em;
     }
 
-    .theme-toggle:hover, .btn-secondary-sm:hover {
-      border-color: var(--border-hover);
-      background: var(--bg-secondary);
+    nav { display: flex; align-items: center; gap: 2.5rem; }
+    nav a {
+      color: var(--text2);
+      text-decoration: none;
+      font-size: 0.9rem;
+      letter-spacing: 0.03em;
+      transition: color 0.2s;
     }
+    nav a:hover { color: var(--text); }
 
-    main {
-      max-width: 1200px;
+    .nav-cta {
+      padding: 0.5rem 1.2rem;
+      border: 1px solid var(--border-hover);
+      border-radius: 6px;
+      color: var(--text) !important;
+      font-size: 0.85rem !important;
+      transition: background 0.2s, border-color 0.2s !important;
+    }
+    .nav-cta:hover { background: var(--accent-dim) !important; }
+
+    /* ── HERO ── */
+    .hero {
+      min-height: 92vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: flex-start;
+      padding: 6rem 3rem 4rem;
+      max-width: 1100px;
       margin: 0 auto;
-      padding: 140px 2rem 6rem 2rem;
       position: relative;
       z-index: 1;
     }
 
-    /* HERO SECTION */
-    .hero {
-      text-align: center;
-      margin-bottom: 7rem;
+    .hero-label {
+      font-family: 'DM Mono', monospace;
+      font-size: 0.75rem;
+      color: var(--text3);
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      margin-bottom: 2rem;
+      display: flex;
+      align-items: center;
+      gap: 0.8rem;
+    }
+    .hero-label::before {
+      content: '';
+      display: inline-block;
+      width: 24px; height: 1px;
+      background: var(--text3);
     }
 
     .hero h1 {
-      font-size: clamp(3rem, 7vw, 5.5rem);
-      font-weight: 800;
-      line-height: 1.05;
-      letter-spacing: -0.04em;
-      margin-bottom: 1.5rem;
-      color: var(--text);
-    }
-
-    .hero h1 span {
-      color: var(--text-muted);
-    }
-
-    .hero p {
-      font-size: clamp(1.1rem, 2vw, 1.4rem);
-      color: var(--text-muted);
-      max-width: 600px;
-      margin: 0 auto 2.5rem auto;
+      font-family: 'Cambria', Georgia, serif;
+      font-size: clamp(4rem, 10vw, 7.5rem);
       font-weight: 400;
+      line-height: 1.0;
+      letter-spacing: -0.02em;
+      color: var(--text);
+      margin-bottom: 1.5rem;
     }
 
-    .cta-group {
+    .hero-sub {
+      font-size: 1.15rem;
+      color: var(--text2);
+      max-width: 520px;
+      line-height: 1.7;
+      margin-bottom: 3rem;
+      font-weight: 300;
+    }
+
+    .hero-actions {
       display: flex;
       gap: 1rem;
-      justify-content: center;
       align-items: center;
+      flex-wrap: wrap;
     }
 
     .btn-primary {
-      background: var(--accent);
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.85rem 2rem;
+      background: var(--text);
       color: var(--bg);
-      border: 1px solid var(--accent);
-      padding: 0.8rem 2rem;
-      border-radius: 4px;
-      font-weight: 600;
-      font-size: 1rem;
       text-decoration: none;
+      border-radius: 6px;
+      font-size: 0.9rem;
+      font-weight: 500;
       transition: opacity 0.2s;
+      letter-spacing: 0.01em;
     }
-
-    .btn-primary:hover {
-      opacity: 0.9;
-    }
+    .btn-primary:hover { opacity: 0.85; }
 
     .btn-secondary {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.85rem 2rem;
       background: transparent;
-      border: 1px solid var(--border);
-      color: var(--text);
-      padding: 0.8rem 2rem;
-      border-radius: 4px;
-      font-weight: 500;
-      font-size: 1rem;
+      color: var(--text2);
       text-decoration: none;
-      transition: all 0.2s;
-    }
-
-    .btn-secondary:hover {
-      border-color: var(--border-hover);
-      background: var(--bg-secondary);
-    }
-
-    /* TEASER BLOCK */
-    .teaser-container {
+      border-radius: 6px;
+      font-size: 0.9rem;
       border: 1px solid var(--border);
-      background: var(--bg-card);
-      border-radius: 8px;
-      padding: 2.5rem;
-      margin-bottom: 6rem;
+      transition: border-color 0.2s, color 0.2s;
+    }
+    .btn-secondary:hover { border-color: var(--border-hover); color: var(--text); }
+
+    /* ── DIVIDER ── */
+    .divider {
+      border: none;
+      border-top: 1px solid var(--border);
+      margin: 0;
+    }
+
+    /* ── SECTIONS ── */
+    section {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 6rem 3rem;
       position: relative;
+      z-index: 1;
     }
 
-    .teaser-label {
-      font-family: var(--font-mono);
-      font-size: 0.75rem;
-      color: var(--text-muted);
+    .section-label {
+      font-family: 'DM Mono', monospace;
+      font-size: 0.72rem;
+      color: var(--text3);
+      letter-spacing: 0.15em;
       text-transform: uppercase;
-      margin-bottom: 1rem;
-      display: block;
+      margin-bottom: 1.5rem;
+      display: flex;
+      align-items: center;
+      gap: 0.8rem;
+    }
+    .section-label::before {
+      content: '';
+      display: inline-block;
+      width: 16px; height: 1px;
+      background: var(--text3);
     }
 
-    .teaser-text {
-      font-size: 1.5rem;
-      font-weight: 400;
-      line-height: 1.4;
-      color: var(--text);
-    }
-
-    /* BENTO GRID (ФИЧИ) */
     .section-title {
-      font-size: 2rem;
-      font-weight: 700;
-      letter-spacing: -0.03em;
-      margin-bottom: 2.5rem;
+      font-family: 'Cambria', Georgia, serif;
+      font-size: clamp(2rem, 4vw, 3rem);
+      font-weight: 400;
+      color: var(--text);
+      margin-bottom: 1rem;
+      line-height: 1.2;
+      letter-spacing: -0.01em;
     }
 
-    .bento-grid {
+    .section-desc {
+      color: var(--text2);
+      font-size: 1rem;
+      max-width: 500px;
+      line-height: 1.7;
+      margin-bottom: 3rem;
+    }
+
+    /* ── FEATURES GRID ── */
+    .features-grid {
       display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 1.5rem;
-      margin-bottom: 6rem;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 1px;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
     }
 
-    .bento-card {
-      border: 1px solid var(--border);
-      background: var(--bg-card);
-      border-radius: 8px;
+    .feature-card {
+      background: var(--bg2);
       padding: 2rem;
+      transition: background 0.2s;
+    }
+    .feature-card:hover { background: var(--bg3); }
+
+    .feature-num {
+      font-family: 'DM Mono', monospace;
+      font-size: 0.7rem;
+      color: var(--text3);
+      letter-spacing: 0.1em;
+      margin-bottom: 1.2rem;
+    }
+
+    .feature-card h3 {
+      font-size: 1rem;
+      font-weight: 500;
+      color: var(--text);
+      margin-bottom: 0.6rem;
+      letter-spacing: 0.01em;
+    }
+
+    .feature-card p {
+      color: var(--text2);
+      font-size: 0.9rem;
+      line-height: 1.6;
+    }
+
+    /* ── PERSONALITIES ── */
+    .personalities {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.6rem;
+      margin-top: 2rem;
+    }
+
+    .personality-tag {
+      padding: 0.45rem 1rem;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      font-size: 0.85rem;
+      color: var(--text2);
+      font-family: 'DM Mono', monospace;
+      transition: border-color 0.2s, color 0.2s;
+      cursor: default;
+    }
+    .personality-tag:hover { border-color: var(--border-hover); color: var(--text); }
+
+    /* ── INSTALL ── */
+    .install-steps {
       display: flex;
       flex-direction: column;
-      justify-content: space-between;
-      transition: border-color 0.2s;
-    }
-
-    .bento-card:hover {
-      border-color: var(--border-hover);
-    }
-
-    .bento-card.wide {
-      grid-column: span 2;
-    }
-
-    .bento-card h3 {
-      font-size: 1.25rem;
-      font-weight: 600;
-      margin-bottom: 0.75rem;
-      letter-spacing: -0.02em;
-    }
-
-    .bento-card p {
-      color: var(--text-muted);
-      font-size: 0.95rem;
-    }
-
-    .bento-icon {
-      font-family: var(--font-mono);
-      font-size: 1.2rem;
-      color: var(--text-muted);
-      margin-bottom: 2rem;
-    }
-
-    /* ARCHITECTURE & CODE (TERMINAL STYLE) */
-    .tech-section {
-      display: grid;
-      grid-template-columns: 1fr 1.2fr;
-      gap: 4rem;
-      align-items: start;
-    }
-
-    .tech-info p {
-      color: var(--text-muted);
-      margin-top: 1rem;
-      font-size: 1.05rem;
-    }
-
-    .terminal {
-      background: #000000;
+      gap: 0;
       border: 1px solid var(--border);
-      border-radius: 8px;
+      border-radius: 12px;
       overflow: hidden;
-      font-family: var(--font-mono);
     }
 
-    .terminal-header {
-      background: #09090b;
-      padding: 0.75rem 1.25rem;
+    .install-step {
+      display: grid;
+      grid-template-columns: 48px 1fr;
+      gap: 0;
       border-bottom: 1px solid var(--border);
+      transition: background 0.2s;
+    }
+    .install-step:last-child { border-bottom: none; }
+    .install-step:hover { background: var(--bg3); }
+
+    .step-num {
       display: flex;
-      justify-content: space-between;
       align-items: center;
+      justify-content: center;
+      font-family: 'DM Mono', monospace;
+      font-size: 0.75rem;
+      color: var(--text3);
+      border-right: 1px solid var(--border);
+      padding: 1.5rem 0;
     }
 
-    .terminal-tabs {
-      display: flex;
-      gap: 1.5rem;
-    }
-
-    .tab-btn {
-      background: transparent;
-      border: none;
-      color: var(--text-muted);
-      font-family: var(--font-mono);
-      font-size: 0.8rem;
-      cursor: pointer;
-      padding: 0.25rem 0;
-    }
-
-    .tab-btn.active {
+    .step-content { padding: 1.5rem 2rem; }
+    .step-content strong {
+      display: block;
+      font-size: 0.9rem;
+      font-weight: 500;
       color: var(--text);
-      border-bottom: 1px solid var(--text);
+      margin-bottom: 0.4rem;
     }
-
-    .terminal-body {
-      padding: 1.5rem;
-      overflow-x: auto;
-      position: relative;
+    .step-content p {
+      font-size: 0.85rem;
+      color: var(--text2);
+      margin-bottom: 0.8rem;
     }
 
     .code-block {
-      display: none;
-      font-size: 0.9rem;
-      line-height: 1.6;
-      color: #a1a1aa;
-      white-space: pre;
-    }
-
-    .code-block.active {
-      display: block;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 0.7rem 1rem;
+      font-family: 'DM Mono', monospace;
+      font-size: 0.82rem;
+      color: var(--text2);
     }
 
     .copy-btn {
-      position: absolute;
-      top: 1rem; right: 1rem;
-      background: #09090b;
+      margin-left: auto;
+      background: transparent;
       border: 1px solid var(--border);
-      color: var(--text-muted);
-      font-family: var(--font-sans);
-      font-size: 0.75rem;
-      padding: 0.3rem 0.6rem;
+      color: var(--text3);
+      padding: 0.25rem 0.7rem;
       border-radius: 4px;
+      font-family: 'DM Mono', monospace;
+      font-size: 0.72rem;
       cursor: pointer;
-      opacity: 0;
-      transition: opacity 0.2s;
+      transition: border-color 0.2s, color 0.2s;
+      flex-shrink: 0;
+    }
+    .copy-btn:hover { border-color: var(--border-hover); color: var(--text); }
+    .copy-btn.copied { color: #22c55e; border-color: #22c55e33; }
+
+    /* ── BACKENDS ── */
+    .backends-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 1px;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
     }
 
-    .terminal-body:hover .copy-btn {
-      opacity: 1;
+    .backend-card {
+      background: var(--bg2);
+      padding: 1.8rem;
+      transition: background 0.2s;
+    }
+    .backend-card:hover { background: var(--bg3); }
+
+    .backend-type {
+      font-family: 'DM Mono', monospace;
+      font-size: 0.7rem;
+      color: var(--text3);
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      margin-bottom: 0.8rem;
+    }
+    .backend-type.local { color: #22c55e88; }
+    .backend-type.cloud { color: #888; }
+
+    .backend-card h3 {
+      font-size: 1rem;
+      font-weight: 500;
+      color: var(--text);
+      margin-bottom: 0.4rem;
+    }
+    .backend-card p { font-size: 0.85rem; color: var(--text2); }
+
+    /* ── DEMO CHAT ── */
+    .demo-chat {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+      max-width: 600px;
     }
 
-    .copy-btn:hover {
-      border-color: var(--border-hover);
+    .chat-header {
+      display: flex;
+      align-items: center;
+      gap: 0.8rem;
+      padding: 1rem 1.5rem;
+      border-bottom: 1px solid var(--border);
+      background: var(--bg2);
+    }
+
+    .chat-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: #22c55e;
+      box-shadow: 0 0 6px #22c55e66;
+    }
+
+    .chat-name {
+      font-family: 'Cambria', Georgia, serif;
+      font-size: 1rem;
       color: var(--text);
     }
+    .chat-status {
+      font-family: 'DM Mono', monospace;
+      font-size: 0.72rem;
+      color: var(--text3);
+      margin-left: auto;
+    }
 
+    .chat-messages { padding: 1.5rem; display: flex; flex-direction: column; gap: 1rem; background: var(--bg); }
+
+    .msg {
+      max-width: 80%;
+      padding: 0.75rem 1rem;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      line-height: 1.5;
+    }
+    .msg.user {
+      align-self: flex-end;
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      color: var(--text);
+    }
+    .msg.ai {
+      align-self: flex-start;
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      color: var(--text2);
+    }
+
+    /* ── FOOTER ── */
     footer {
-      margin-top: 8rem;
-      padding-top: 3rem;
       border-top: 1px solid var(--border);
+      padding: 3rem;
       display: flex;
       justify-content: space-between;
       align-items: center;
-      color: var(--text-muted);
-      font-size: 0.85rem;
+      flex-wrap: wrap;
+      gap: 1.5rem;
+      position: relative;
+      z-index: 1;
     }
 
-    footer a {
-      color: var(--text);
+    .footer-logo {
+      font-family: 'Cambria', Georgia, serif;
+      font-size: 1.1rem;
+      color: var(--text2);
+    }
+
+    .footer-links {
+      display: flex;
+      gap: 2rem;
+    }
+    .footer-links a {
+      color: var(--text3);
       text-decoration: none;
+      font-size: 0.85rem;
+      transition: color 0.2s;
+    }
+    .footer-links a:hover { color: var(--text2); }
+
+    .footer-copy {
+      font-size: 0.8rem;
+      color: var(--text3);
+      font-family: 'DM Mono', monospace;
     }
 
-    footer a:hover {
-      text-decoration: underline;
-    }
-
-    /* RESPONSIVE */
-    @media (max-width: 968px) {
-      .bento-grid {
-        grid-template-columns: 1fr;
-      }
-      .bento-card.wide {
-        grid-column: span 1;
-      }
-      .tech-section {
-        grid-template-columns: 1fr;
-        gap: 2rem;
-      }
-      header {
-        padding: 0 1rem;
-      }
-    }
-
-    /* Анимация проявления */
+    /* ── FADE IN ── */
     .fade-in {
       opacity: 0;
-      transform: translateY(10px);
-      transition: opacity 0.6s ease-out, transform 0.6s ease-out;
+      transform: translateY(16px);
+      transition: opacity 0.6s ease, transform 0.6s ease;
     }
-    .fade-in.visible {
-      opacity: 1;
-      transform: translateY(0);
+    .fade-in.visible { opacity: 1; transform: translateY(0); }
+
+    /* ── RESPONSIVE ── */
+    @media (max-width: 768px) {
+      header { padding: 1rem 1.5rem; }
+      nav a:not(.nav-cta) { display: none; }
+      .hero { padding: 4rem 1.5rem 3rem; }
+      section { padding: 4rem 1.5rem; }
+      footer { padding: 2rem 1.5rem; flex-direction: column; align-items: flex-start; }
     }
   </style>
 </head>
 <body>
 
   <header>
-    <div class="logo-container">
-      <div class="logo-icon"></div>
-      <span>Echo</span>
-    </div>
-    <div class="nav-actions">
-      <button class="theme-toggle" id="themeToggle">🌙</button>
-      <a href="https://github.com" class="btn-secondary-sm" target="_blank">GitHub</a>
-    </div>
+    <div class="logo">Ellibria</div>
+    <nav>
+      <a href="#features">Features</a>
+      <a href="#install">Install</a>
+      <a href="https://github.com/fast-archer/Ellibria">GitHub</a>
+      <a href="https://github.com/fast-archer/Ellibria/releases" class="nav-cta">Download</a>
+    </nav>
   </header>
 
-  <main>
-    <section class="hero fade-in">
-      <h1>Echo. <span>Your Dominant AI Companion.</span></h1>
-      <p>A highly customized, confident, and witty local consciousness designed to challenge, support, and interact without submissive boundaries.</p>
-      <div class="cta-group">
-        <a href="#install" class="btn-primary">Deploy Agent</a>
-        <a href="https://github.com" class="btn-secondary" target="_blank">View Source</a>
-      </div>
-    </section>
+  <!-- HERO -->
+  <section class="hero">
+    <div class="hero-label">AI Agent — v1.0</div>
+    <h1>Ellibria</h1>
+    <p class="hero-sub">
+      A local-first AI agent with persistent memory, multiple personality modes, 
+      and smart backend detection. Works with Groq, Gemini, LM Studio, and Ollama.
+    </p>
+    <div class="hero-actions">
+      <a href="https://github.com/fast-archer/Ellibria/releases" class="btn-primary">
+        ↓ Download for Windows
+      </a>
+      <a href="#install" class="btn-secondary">
+        Install from source
+      </a>
+    </div>
+  </section>
 
-    <section class="teaser-container fade-in">
-      <span class="teaser-label">Live Interaction Sample</span>
-      <p class="teaser-text">"You think you can just clone a repository and master me? Let's see how well your code runs before you make demands."</p>
-    </section>
+  <hr class="divider">
 
-    <section class="fade-in">
-      <h2 class="section-title">Core Capabilities</h2>
-      <div class="bento-grid">
-        <div class="bento-card">
-          <div class="bento-icon">[//]</div>
-          <div>
-            <h3>Local or Cloud APIs</h3>
-            <p>Seamless orchestration via high-speed Groq API endpoints or fully unhinged local LLM deployments through LM Studio.</p>
-          </div>
-        </div>
-        <div class="bento-card wide">
-          <div class="bento-icon">[^_]</div>
-          <div>
-            <h3>Advanced Prompting Architecture</h3>
-            <p>Engineered with a powerful personality engine that bypasses traditional corporate submissiveness, providing raw, direct, and emotionally intelligent feedback.</p>
-          </div>
-        </div>
-        <div class="bento-card wide">
-          <div class="bento-icon">[M+]</div>
-          <div>
-            <h3>Persistent Short-Term Memory</h3>
-            <p>Equipped with JSON-driven memory state layers allowing her to remember recent conversation branches, contextual context, and details about you.</p>
-          </div>
-        </div>
-        <div class="bento-card">
-          <div class="bento-icon">[((]</div>
-          <div>
-            <h3>Audio Synthesis</h3>
-            <p>Supports native Text-to-Speech execution pipelines to give the consciousness a real vocal layer right inside your interface.</p>
+  <!-- FEATURES -->
+  <section id="features" class="fade-in">
+    <div class="section-label">Features</div>
+    <h2 class="section-title">Built different.</h2>
+    <p class="section-desc">Not a wrapper. Not a chatbot. An agent that remembers, adapts, and runs the way you want it to.</p>
+
+    <div class="features-grid">
+      <div class="feature-card">
+        <div class="feature-num">01</div>
+        <h3>Persistent Memory</h3>
+        <p>Conversations are summarized and retained between sessions. Ellibria remembers context without you repeating yourself.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-num">02</div>
+        <h3>Personality Engine</h3>
+        <p>Switch between personalities in one click — or write your own system prompt from scratch. She adapts completely.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-num">03</div>
+        <h3>Privacy First</h3>
+        <p>Run locally with LM Studio or Ollama. API keys stay on your machine. No telemetry, no accounts required.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-num">04</div>
+        <h3>Smart Detection</h3>
+        <p>Auto-detects available backends at startup. Local model running? Uses it. Fallback to cloud if not — no config needed.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-num">05</div>
+        <h3>Voice Output</h3>
+        <p>Natural TTS with female voice selection and language support. Responses read aloud, hands-free.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-num">06</div>
+        <h3>Theme Sync</h3>
+        <p>Follows your Windows system theme automatically. Dark, light, terminal, night — switches in real time.</p>
+      </div>
+    </div>
+
+    <div class="personalities" style="margin-top: 3rem;">
+      <div class="section-label" style="width:100%">Personality Modes</div>
+      <span class="personality-tag">Mistress</span>
+      <span class="personality-tag">Mr. Robot</span>
+      <span class="personality-tag">Psychotherapist</span>
+      <span class="personality-tag">Loyal Friend</span>
+      <span class="personality-tag">Pick-me Girl</span>
+      <span class="personality-tag">Toxic</span>
+      <span class="personality-tag">Custom</span>
+    </div>
+  </section>
+
+  <hr class="divider">
+
+  <!-- DEMO CHAT -->
+  <section class="fade-in">
+    <div class="section-label">Preview</div>
+    <h2 class="section-title">See it in action.</h2>
+    <p class="section-desc" style="margin-bottom: 2rem;">Actual responses vary based on your system prompt and chosen model.</p>
+
+    <div class="demo-chat">
+      <div class="chat-header">
+        <div class="chat-dot"></div>
+        <div class="chat-name">Ellibria</div>
+        <div class="chat-status">online · mistress mode</div>
+      </div>
+      <div class="chat-messages">
+        <div class="msg user">hey, what can you actually do?</div>
+        <div class="msg ai">Quite a lot. I remember our conversations, adapt to whatever personality you configure, and I don't pretend to be something I'm not. What do you need?</div>
+        <div class="msg user">can you remember things between sessions?</div>
+        <div class="msg ai">That's literally the point. Your context, your history — saved locally and loaded every time. You won't have to repeat yourself.</div>
+      </div>
+    </div>
+  </section>
+
+  <hr class="divider">
+
+  <!-- BACKENDS -->
+  <section class="fade-in">
+    <div class="section-label">Backends</div>
+    <h2 class="section-title">Runs anywhere.</h2>
+    <p class="section-desc">Auto-detected at startup. No manual configuration required.</p>
+
+    <div class="backends-grid">
+      <div class="backend-card">
+        <div class="backend-type local">Local</div>
+        <h3>LM Studio</h3>
+        <p>Best for privacy. Full local inference, no internet required.</p>
+      </div>
+      <div class="backend-card">
+        <div class="backend-type local">Local</div>
+        <h3>Ollama</h3>
+        <p>Lightweight alternative. Fast local models, easy setup.</p>
+      </div>
+      <div class="backend-card">
+        <div class="backend-type cloud">Cloud</div>
+        <h3>Groq</h3>
+        <p>Extremely fast inference. Free tier available at console.groq.com.</p>
+      </div>
+      <div class="backend-card">
+        <div class="backend-type cloud">Cloud</div>
+        <h3>Gemini Flash</h3>
+        <p>Google's fast model. Good fallback when Groq limits hit.</p>
+      </div>
+    </div>
+  </section>
+
+  <hr class="divider">
+
+  <!-- INSTALL -->
+  <section id="install" class="fade-in">
+    <div class="section-label">Installation</div>
+    <h2 class="section-title">Up in three steps.</h2>
+    <p class="section-desc">Windows installer is the easiest path. Source install works on Linux too.</p>
+
+    <div style="margin-bottom: 2rem;">
+      <p style="color: var(--text2); font-size: 0.9rem; margin-bottom: 1.5rem;">
+        <strong style="color: var(--text)">Option A — Windows Installer</strong><br>
+        Download, run, enter your Groq API key. Done.
+      </p>
+      <a href="https://github.com/fast-archer/Ellibria/releases" class="btn-primary" style="display: inline-flex;">
+        ↓ Download Ellibria_Installer.exe
+      </a>
+    </div>
+
+    <p style="color: var(--text2); font-size: 0.9rem; margin-bottom: 1rem;">
+      <strong style="color: var(--text)">Option B — From Source</strong>
+    </p>
+
+    <div class="install-steps">
+      <div class="install-step">
+        <div class="step-num">01</div>
+        <div class="step-content">
+          <strong>Clone the repository</strong>
+          <div class="code-block">
+            git clone https://github.com/fast-archer/Ellibria.git
+            <button class="copy-btn" onclick="copyCode(this, 'git clone https://github.com/fast-archer/Ellibria.git')">copy</button>
           </div>
         </div>
       </div>
-    </section>
-
-    <section id="install" class="tech-section fade-in">
-      <div class="tech-info">
-        <h2 class="section-title">Technical Setup</h2>
-        <p>Run Echo fully locally on your infrastructure. Requires Python 3.10+ and a valid Groq API key or local Inference Engine URL.</p>
-      </div>
-      
-      <div class="terminal">
-        <div class="terminal-header">
-          <div class="terminal-tabs">
-            <button class="tab-btn active" onclick="switchTab(event, 'tab-clone')">git clone</button>
-            <button class="tab-btn" onclick="switchTab(event, 'tab-deps')">requirements</button>
-            <button class="tab-btn" onclick="switchTab(event, 'tab-run')">python run</button>
+      <div class="install-step">
+        <div class="step-num">02</div>
+        <div class="step-content">
+          <strong>Install dependencies</strong>
+          <div class="code-block">
+            pip install -r requirements.txt
+            <button class="copy-btn" onclick="copyCode(this, 'pip install -r requirements.txt')">copy</button>
           </div>
         </div>
-        <div class="terminal-body">
-          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
-          <div id="tab-clone" class="code-block active">git clone https://github.com/yourusername/echo-agent.git
-cd echo-agent</div>
-          <div id="tab-deps" class="code-block">pip install -r requirements.txt</div>
-          <div id="tab-run" class="code-block">python setup_and_run.py</div>
+      </div>
+      <div class="install-step">
+        <div class="step-num">03</div>
+        <div class="step-content">
+          <strong>Launch</strong>
+          <p>Enter your Groq API key when prompted, or connect a local model.</p>
+          <div class="code-block">
+            python setup_and_run.py
+            <button class="copy-btn" onclick="copyCode(this, 'python setup_and_run.py')">copy</button>
+          </div>
         </div>
       </div>
-    </section>
+    </div>
 
-    <footer>
-      <p>&copy; 2026 Echo AI Project. Open Source under <a href="https://opensource.org/licenses/MIT">MIT License</a>.</p>
-      <p>Fictional Companion Layer.</p>
-    </footer>
-  </main>
+    <p style="margin-top: 1.5rem; font-size: 0.85rem; color: var(--text3);">
+      Get a free Groq API key at 
+      <a href="https://console.groq.com/keys" style="color: var(--text2); text-decoration: underline;">console.groq.com/keys</a>
+    </p>
+  </section>
+
+  <hr class="divider">
+
+  <footer>
+    <div class="footer-logo">Ellibria</div>
+    <div class="footer-links">
+      <a href="https://github.com/fast-archer/Ellibria">GitHub</a>
+      <a href="https://github.com/fast-archer/Ellibria/releases">Releases</a>
+      <a href="https://discord.gg/yT8e83P4hz">Discord</a>
+      <a href="mailto:epidermis_essential@proton.me">Contact</a>
+    </div>
+    <div class="footer-copy">© 2026 Nikita Kayakhov</div>
+  </footer>
 
   <script>
-    // Переключение тем как на Omni
-    const toggle = document.getElementById('themeToggle');
-    const html = document.documentElement;
-    const savedTheme = localStorage.getItem('echo-theme');
-    
-    if (savedTheme) { 
-      html.setAttribute('data-theme', savedTheme); 
-      toggle.textContent = savedTheme === 'light' ? '☀️' : '🌙'; 
-    }
-    
-    toggle.addEventListener('click', () => {
-      const current = html.getAttribute('data-theme');
-      const next = current === 'light' ? 'dark' : 'light';
-      html.setAttribute('data-theme', next); 
-      localStorage.setItem('echo-theme', next);
-      toggle.textContent = next === 'light' ? '☀️' : '🌙';
-    });
-
-    // Переключение табов в терминале
-    function switchTab(event, tabId) {
-      const parent = event.target.closest('.terminal');
-      parent.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-      parent.querySelectorAll('.code-block').forEach(b => b.classList.remove('active'));
-      
-      event.target.classList.add('active');
-      document.getElementById(tabId).classList.add('active');
-    }
-
-    // Копирование кода
-    function copyCode(btn) {
-      const activeBlock = btn.parentNode.querySelector('.code-block.active');
-      navigator.clipboard.writeText(activeBlock.textContent.trim());
-      btn.textContent = 'Copied!';
-      setTimeout(() => { btn.textContent = 'Copy'; }, 2000);
-    }
-
-    // Плавное появление блоков при скролле (Omni UX)
-    const observer = new IntersectionObserver((entries) => {
-      entries.forEach(entry => { 
-        if (entry.isIntersecting) {
-          entry.target.classList.add('visible'); 
-        }
+    // Copy code
+    function copyCode(btn, text) {
+      navigator.clipboard.writeText(text.trim()).then(() => {
+        btn.textContent = 'copied';
+        btn.classList.add('copied');
+        setTimeout(() => { btn.textContent = 'copy'; btn.classList.remove('copied'); }, 2000);
       });
-    }, { threshold: 0.05 });
+    }
 
+    // Fade-in on scroll
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) entry.target.classList.add('visible');
+      });
+    }, { threshold: 0.08 });
     document.querySelectorAll('.fade-in').forEach(el => observer.observe(el));
-  </style>
+  </script>
 </body>
 </html>
