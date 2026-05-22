@@ -1,9 +1,9 @@
-# Ellibria — AI Companion with Personality
+### Ellibria — AI Companion with Personality
 
 <img src="https://github.com/fast-archer/echoai/blob/main/docs/screenshot.png" 
 width="720" alt="Echo">
 
-**Ellibria** is a locally-hosted AI agent with a distinctive personality engine,
+**[Ellibria](https://fast-archer.github.io/Ellibria/)** is a locally-hosted AI agent with a distinctive personality engine,
 persistent memory, and support for multiple backends — designed to feel less
 like a tool and more like a presence.
 
