@@ -85,8 +85,10 @@ Echo adapts to whatever role or tone you configure.
 
 ## 📜 License
 
-This project is licensed under **AGPL-3.0** for personal and open-source use.  
-For commercial licensing, contact: epidermis_essential@proton.me
+© 2026 Nikita Kayakhov. All rights reserved.  
+Source code is available for viewing only.  
+Commercial use or redistribution requires written permission.  
+Contact: epidermis_essential@proton.me
 
 ---
 
