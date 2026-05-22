@@ -1,9 +1,9 @@
-# Echo — AI Companion with Personality
+# Ellibria — AI Companion with Personality
 
 <img src="https://github.com/fast-archer/echoai/blob/main/docs/screenshot.png" 
 width="720" alt="Echo">
 
-**Echo** is a locally-hosted AI agent with a distinctive personality engine,
+**Ellibria** is a locally-hosted AI agent with a distinctive personality engine,
 persistent memory, and support for multiple backends — designed to feel less
 like a tool and more like a presence.
 
@@ -29,22 +29,12 @@ like a tool and more like a presence.
 
 ### Windows (Recommended)
 
-1. Download **[EchoInstaller.exe](https://github.com/fast-archer/echoai/releases)**
+1. Download **[Ellibria Installer.exe](https://github.com/fast-archer/Ellibria/releases)**
 2. Run the installer
 3. On first launch, enter your **[Groq API Key](https://console.groq.com/keys)**
 4. Echo starts immediately — no additional setup required
 
 ### Linux / Arch Linux
-
-> Native installer is under active development. Arch/CachyOS users may encounter
-> issues with PEP 668 pip restrictions and PipeWire audio dependencies.
-
-```bash
-git clone https://github.com/fast-archer/echoai.git
-cd echoai/linux
-chmod +x setup_arch.sh run_arch.sh
-./setup_arch.sh && ./run_arch.sh
-```
 
 Full one-click Linux installer coming soon.
 
