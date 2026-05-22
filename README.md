@@ -1,72 +1,96 @@
-# Echo — Your Dominant, Caring AI Girlfriend
+# Echo — AI Companion with Personality
 
-<img src="https://github.com/fast-archer/echoai/blob/main/docs/screenshot.png" width="720" alt="Echo">
+<img src="https://github.com/fast-archer/echoai/blob/main/docs/screenshot.png" 
+width="720" alt="Echo">
 
-### **[Echo](https://fast-archer.github.io/echoai/) is not just another chatbot.**  
-She’s confident, teasing, playfully dominant, and genuinely caring — your personal AI companion who knows exactly how to take control… while always taking care of you.
+**Echo** is a locally-hosted AI agent with a distinctive personality engine,
+persistent memory, and support for multiple backends — designed to feel less
+like a tool and more like a presence.
 
-Built with love, attitude, and a touch of femdom energy 💜
+---
 
-### ✨ Key Features
+## ✨ Features
 
-- **Strong personality — dominant yet caring femdom vibe (always respecting your comfort)**
-- 💾 **Persistent memory — Echo remembers your conversations between sessions (auto-saved to `~/.echo-agent/`)**
-- 🔐 **Secure config — API keys stored locally, never sent to GitHub**
-- **Beautiful modern dark interface with multiple themes (Purple, Night, Terminal and more)**
-- **Voice output with natural female TTS voices**
-- **Long-term memory & conversation summary**
-- **Fully customizable system prompt**
-- **Works locally or through cloud APIs**
-- **Smart auto-detection of backend (LM Studio, Ollama, Groq, Gemini)**
-- **Different personalities (Mistress,Mr.Robot,Pick-me girl,Toxic, Psychotherapist, and Loyal Friend)**
+- **Personality modes** — switch between Mistress, Mr. Robot, Psychotherapist,
+  Loyal Friend, and more via the settings panel
+- **Persistent memory** — conversations are summarized and retained between
+  sessions, stored locally in `~/.echo-agent/`
+- **Fully customizable system prompt** — rewrite her behavior from scratch
+  in one click
+- **Multiple themes** — Dark, Light, Purple, Night, Terminal
+- **Voice output** — natural female TTS with language selection
+- **Smart backend detection** — automatically connects to LM Studio, Ollama,
+  Groq, or Gemini Flash depending on what's available
+- **Secure local config** — API keys never leave your machine
 
-### 🚀 Quick Installation
+---
 
-#### Option 1: Windows (Recommended)
+## 🚀 Quick Start
 
-1. Download the latest **[EchoInstaller.exe](https://github.com/fast-archer/echoai/releases)**
+### Windows (Recommended)
+
+1. Download **[EchoInstaller.exe](https://github.com/fast-archer/echoai/releases)**
 2. Run the installer
-3. On first launch enter your **[Groq API Key](https://console.groq.com/keys)** (or connect local model)
-4. Enjoy — Echo is already waiting for you ❤️
+3. On first launch, enter your **[Groq API Key](https://console.groq.com/keys)**
+4. Echo starts immediately — no additional setup required
 
-#### Option 2: Linux / Arch Linux (In Development 🛠️)
+### Linux / Arch Linux
 
-> **Note for Arch/CachyOS users:** The native installer is currently being refactored due to strict package management (`pip` PEP 668 environment restrictions) and audio driver dependencies (PipeWire/TTS). 
+> Native installer is under active development. Arch/CachyOS users may encounter
+> issues with PEP 668 pip restrictions and PipeWire audio dependencies.
 
-You can try the experimental installation script, but at this time it only works on Windows.
-```
+```bash
 git clone https://github.com/fast-archer/echoai.git
-cd echoai
-cd linux
+cd echoai/linux
 chmod +x setup_arch.sh run_arch.sh
-./setup_arch.sh
-./run_arch.sh
+./setup_arch.sh && ./run_arch.sh
 ```
-### 📁 Where data is stored
-All your settings and chat history are saved locally:
-- Windows: `C:\Users\<You>\.echo-agent\`
-- Linux: `~/.echo-agent/`
-- Files: `config.json`, `chat_history.json`, `system_prompt.txt`
 
-### 💻 Linux — full one-click installer coming very soon.
+Full one-click Linux installer coming soon.
 
-🔧 Supported Backends
+---
 
-- LM Studio (best for privacy)
-- Ollama
-- Groq (fast & free)
-- Gemini Flash
+## 🔧 Supported Backends
 
-### 🎨 Customization
-Want her stricter? Softer? More teasing? More romantic?
-Just open Settings and rewrite her system prompt however you like — she adapts perfectly.
+| Backend | Type | Notes |
+|---|---|---|
+| LM Studio | Local | Best for privacy |
+| Ollama | Local | Lightweight alternative |
+| Groq | Cloud | Fast, free tier available |
+| Gemini Flash | Cloud | Google API |
 
-## 🌐 Contact
+Auto-detected on startup — no manual configuration needed.
 
-For discussions or suggestions, reach out:
-- **Email**: epidermis_essential@proton.me
-- **Discord**: [here](https://discord.gg/yT8e83P4hz)
+---
+
+## 📁 Data Storage
+
+All data is stored locally on your machine:
+
+| Platform | Path |
+|---|---|
+| Windows | `C:\Users\<You>\.echo-agent\` |
+| Linux | `~/.echo-agent\` |
+
+Files: `config.json`, `chat_history.json`, `system_prompt.txt`
+
+---
+
+## 🎨 Customization
+
+Open **Settings** to adjust personality, voice, theme, and system prompt.
+Echo adapts to whatever role or tone you configure.
+
+---
 
 ## 📜 License
 
-[![MIT License](https://img.shields.io/badge/License-MIT-green.svg)](https://choosealicense.com/licenses/mit/)
+This project is licensed under **AGPL-3.0** for personal and open-source use.  
+For commercial licensing, contact: epidermis_essential@proton.me
+
+---
+
+## 🌐 Contact
+
+- **Email**: epidermis_essential@proton.me  
+- **Discord**: [Join server](https://discord.gg/yT8e83P4hz)
