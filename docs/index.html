@@ -1,337 +1,562 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
   <meta charset="UTF-8">
-<!-- Favicon -->
-<link rel="icon" type="image/x-icon" href="favicon.ico">
-<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
-<link rel="icon" type="image/png" sizes="192x192" href="favicon-192.png">
-<link rel="apple-touch-icon" sizes="192x192" href="favicon-192.png">
-  <title>Echo — Your Dominant AI Companion</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" type="image/x-icon" href="favicon.ico">
+  <title>Echo — Your Dominant AI Companion</title>
   <meta name="description" content="Echo: confident, teasing, playfully dominant AI companion. Works locally or via cloud APIs.">
+  
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Georgia:italic&display=swap" rel="stylesheet">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=CommitMono:ital,wght@0,400;0,700;1,400&family=Inter:wght@300;400;500;700;800&display=swap" rel="stylesheet">
+
   <style>
     :root {
-      --bg: #0f0f1a; --bg-secondary: #161625; --text: #e4e4e7; --text-muted: #a1a1aa;
-      --accent: #a78bfa; --accent-2: #ec4899; --accent-glow: 0 0 20px rgba(167, 139, 250, 0.4);
-      --card-bg: rgba(30, 30, 46, 0.6); --border: rgba(167, 139, 250, 0.2);
-      --success: #22c55e; --warning: #f59e0b;
+      --bg: #000000;
+      --bg-secondary: #0a0a0c;
+      --bg-card: #0c0c0e;
+      --border: #1f1f23;
+      --border-hover: #2f2f35;
+      --text: #f4f4f5;
+      --text-muted: #71717a;
+      --accent: #ffffff;
+      --font-sans: 'Inter', -apple-system, sans-serif;
+      --font-mono: 'CommitMono', 'Courier New', monospace;
     }
+
     [data-theme="light"] {
-      --bg: #f8fafc; --bg-secondary: #ffffff; --text: #18181b; --text-muted: #52525b;
-      --accent: #7c3aed; --accent-2: #db2777; --accent-glow: 0 0 20px rgba(124, 58, 237, 0.25);
-      --card-bg: rgba(255, 255, 255, 0.8); --border: rgba(124, 58, 237, 0.15);
+      --bg: #ffffff;
+      --bg-secondary: #f9f9fb;
+      --bg-card: #ffffff;
+      --border: #e4e4e7;
+      --border-hover: #d4d4d8;
+      --text: #09090b;
+      --text-muted: #71717a;
+      --accent: #000000;
     }
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    html { scroll-behavior: smooth; }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
     body {
-      font-family: 'Inter', system-ui, sans-serif; background: var(--bg); color: var(--text);
-      line-height: 1.6; transition: background 0.3s, color 0.3s; overflow-x: hidden;
+      background-color: var(--bg);
+      color: var(--text);
+      font-family: var(--font-sans);
+      min-height: 100vh;
+      line-height: 1.5;
+      overflow-x: hidden;
+      letter-spacing: -0.01em;
+      transition: background-color 0.3s ease, color 0.3s ease;
     }
 
-    /* === Анимированный фон === */
-    .bg-animation {
-      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-      background: radial-gradient(ellipse at 30% 20%, rgba(167,139,250,0.15) 0%, transparent 50%),
-                  radial-gradient(ellipse at 70% 80%, rgba(236,72,153,0.12) 0%, transparent 50%);
-      animation: gradientShift 15s ease-in-out infinite; z-index: -2; pointer-events: none;
-    }
-    @keyframes gradientShift {
-      0%, 100% { transform: translate(0, 0) scale(1); }
-      33% { transform: translate(2%, -1%) scale(1.02); }
-      66% { transform: translate(-1%, 2%) scale(0.98); }
-    }
-    .particles {
-      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-      background-image: 
-        radial-gradient(1px 1px at 20px 30px, var(--accent) 50%, transparent),
-        radial-gradient(1px 1px at 80px 120px, var(--accent-2) 50%, transparent),
-        radial-gradient(1px 1px at 150px 60px, var(--accent) 50%, transparent),
-        radial-gradient(1px 1px at 200px 200px, var(--accent-2) 50%, transparent);
-      background-size: 300px 300px; opacity: 0.3; animation: float 20s linear infinite;
-      z-index: -1; pointer-events: none;
-    }
-    @keyframes float {
-      0% { background-position: 0 0, 0 0, 0 0, 0 0; }
-      100% { background-position: 300px 300px, 200px 150px, 100px 250px, 250px 100px; }
-    }
-
-    /* === Хедер === */
-    header {
-      position: sticky; top: 0; display: flex; justify-content: space-between; align-items: center;
-      padding: 1rem 2rem; background: rgba(15, 15, 26, 0.8); backdrop-filter: blur(10px);
-      border-bottom: 1px solid var(--border); z-index: 100;
-    }
-    .logo {
-      font-size: 1.5rem; font-weight: 700;
-      background: linear-gradient(90deg, var(--accent), var(--accent-2));
-      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-    }
-    .theme-toggle {
-      background: var(--card-bg); border: 1px solid var(--border); color: var(--text);
-      padding: 0.5rem 1rem; border-radius: 999px; cursor: pointer; transition: all 0.2s; font-size: 1.2rem;
-    }
-    .theme-toggle:hover { transform: scale(1.05); box-shadow: var(--accent-glow); }
-
-    /* === Секции === */
-    section { padding: 4rem 2rem; max-width: 1100px; margin: 0 auto; }
-    .hero {
-      min-height: 90vh; display: flex; flex-direction: column; justify-content: center;
-      align-items: center; text-align: center; padding-top: 2rem;
-    }
-    .hero h1 {
-      font-size: clamp(3rem, 8vw, 5rem); margin: 0;
-      background: linear-gradient(90deg, var(--accent), var(--accent-2));
-      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-      animation: pulse 3s infinite;
-    }
-    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.85; } }
-
-    /* === Аватар в Hero === */
-    .hero-avatar {
-      position: relative; width: 280px; height: 280px; margin: 2rem auto;
-      border-radius: 50%; overflow: hidden;
-      box-shadow: 0 0 60px rgba(167, 139, 250, 0.5);
-      animation: floatAvatar 6s ease-in-out infinite;
-    }
-    .hero-avatar img {
-      width: 100%; height: 100%; object-fit: cover;
-      filter: brightness(1.1) contrast(1.05);
-    }
-    .glow-effect {
-      position: absolute; inset: 0; border-radius: 50%;
-      background: radial-gradient(circle at 30% 30%, rgba(167,139,250,0.3), transparent 60%),
-                  radial-gradient(circle at 70% 70%, rgba(236,72,153,0.25), transparent 60%);
+    /* Сетка на фоне в стиле Omni */
+    body::before {
+      content: "";
+      position: absolute;
+      top: 0; left: 0; right: 0; height: 100vh;
+      background-image: linear-gradient(var(--border) 1px, transparent 1px), linear-gradient(90deg, var(--border) 1px, transparent 1px);
+      background-size: 80px 80px;
+      background-position: center top;
+      opacity: 0.15;
       pointer-events: none;
-    }
-    @keyframes floatAvatar {
-      0%, 100% { transform: translateY(0) scale(1); }
-      50% { transform: translateY(-15px) scale(1.02); }
+      z-index: 0;
     }
 
-    .tagline { font-size: 1.4rem; color: var(--text-muted); margin: 1rem 0 2rem; }
-    .quote {
-      font-family: Georgia, serif; font-style: italic; max-width: 650px; margin: 2rem auto;
-      color: var(--text); border-left: 3px solid var(--accent); padding-left: 1.5rem;
-      background: var(--card-bg); padding: 1.2rem 1.5rem; border-radius: 0 12px 12px 0;
+    header {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      height: 64px;
+      border-bottom: 1px solid var(--border);
+      background: rgba(var(--bg), 0.7);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 2rem;
+      z-index: 100;
     }
-    .cta {
-      display: inline-flex; align-items: center; gap: 0.5rem; padding: 1rem 2.5rem;
-      background: linear-gradient(90deg, var(--accent), var(--accent-2)); color: white;
-      text-decoration: none; border-radius: 999px; font-weight: 600;
-      box-shadow: var(--accent-glow); transition: transform 0.2s, box-shadow 0.2s; margin: 1rem;
-    }
-    .cta:hover { transform: translateY(-3px); box-shadow: 0 0 35px rgba(167, 139, 250, 0.6); }
-    .cta.secondary {
-      background: var(--card-bg); color: var(--text); border: 1px solid var(--border); box-shadow: none;
-    }
-    .cta.secondary:hover { border-color: var(--accent); }
 
-    /* === Features === */
-    .features-grid {
-      display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-      gap: 1.5rem; margin-top: 2rem;
+    .logo-container {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      font-weight: 700;
+      font-size: 1.1rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
     }
-    .feature-card {
-      background: var(--card-bg); border: 1px solid var(--border); border-radius: 16px;
-      padding: 1.5rem; transition: transform 0.2s, border-color 0.2s;
-    }
-    .feature-card:hover { transform: translateY(-4px); border-color: var(--accent); }
-    .feature-icon {
-      font-size: 2rem; margin-bottom: 0.8rem;
-      background: linear-gradient(90deg, var(--accent), var(--accent-2));
-      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-    }
-    .feature-card h3 { margin-bottom: 0.5rem; }
-    .feature-card p { color: var(--text-muted); font-size: 0.95rem; }
 
-    /* === Install steps === */
-    .steps { display: flex; flex-direction: column; gap: 1rem; margin-top: 2rem; }
-    .step {
-      display: flex; gap: 1rem; align-items: flex-start; padding: 1rem;
-      background: var(--card-bg); border-radius: 12px; border: 1px solid var(--border);
+    .logo-icon {
+      width: 20px;
+      height: 20px;
+      background: var(--text);
+      clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
     }
-    .step-num {
-      min-width: 28px; height: 28px; border-radius: 50%;
-      background: linear-gradient(90deg, var(--accent), var(--accent-2));
-      color: white; display: flex; align-items: center; justify-content: center;
-      font-weight: 600; font-size: 0.9rem; flex-shrink: 0;
+
+    .nav-actions {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
     }
-    .step-code {
-      background: #0d0d12; color: #e4e4e7; padding: 1rem; border-radius: 8px;
-      font-family: 'Fira Code', monospace; font-size: 0.9rem; overflow-x: auto;
-      margin: 0.5rem 0; border: 1px solid var(--border);
+
+    .theme-toggle, .btn-secondary-sm {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 0.5rem 0.8rem;
+      border-radius: 4px;
+      cursor: pointer;
+      font-family: var(--font-sans);
+      font-size: 0.85rem;
+      font-weight: 500;
+      transition: all 0.2s;
     }
-    .copy-btn {
-      background: var(--accent); color: white; border: none; padding: 0.3rem 0.8rem;
-      border-radius: 6px; cursor: pointer; font-size: 0.85rem; margin-left: 0.5rem;
+
+    .theme-toggle:hover, .btn-secondary-sm:hover {
+      border-color: var(--border-hover);
+      background: var(--bg-secondary);
+    }
+
+    main {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 140px 2rem 6rem 2rem;
+      position: relative;
+      z-index: 1;
+    }
+
+    /* HERO SECTION */
+    .hero {
+      text-align: center;
+      margin-bottom: 7rem;
+    }
+
+    .hero h1 {
+      font-size: clamp(3rem, 7vw, 5.5rem);
+      font-weight: 800;
+      line-height: 1.05;
+      letter-spacing: -0.04em;
+      margin-bottom: 1.5rem;
+      color: var(--text);
+    }
+
+    .hero h1 span {
+      color: var(--text-muted);
+    }
+
+    .hero p {
+      font-size: clamp(1.1rem, 2vw, 1.4rem);
+      color: var(--text-muted);
+      max-width: 600px;
+      margin: 0 auto 2.5rem auto;
+      font-weight: 400;
+    }
+
+    .cta-group {
+      display: flex;
+      gap: 1rem;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      color: var(--bg);
+      border: 1px solid var(--accent);
+      padding: 0.8rem 2rem;
+      border-radius: 4px;
+      font-weight: 600;
+      font-size: 1rem;
+      text-decoration: none;
       transition: opacity 0.2s;
     }
-    .copy-btn:hover { opacity: 0.9; }
-    .copy-btn.copied { background: var(--success); }
 
-    /* === Backends === */
-    .backends { display: flex; flex-wrap: wrap; gap: 0.8rem; justify-content: center; margin-top: 1.5rem; }
-    .backend-badge {
-      padding: 0.5rem 1.2rem; border-radius: 999px; background: var(--card-bg);
-      border: 1px solid var(--border); font-size: 0.9rem; display: flex; align-items: center; gap: 0.4rem;
+    .btn-primary:hover {
+      opacity: 0.9;
     }
-    .backend-badge.local { border-color: var(--success); }
-    .backend-badge.cloud { border-color: var(--accent); }
 
-    /* === Demo chat === */
-    .demo-chat {
-      max-width: 600px; margin: 2rem auto; background: var(--card-bg);
-      border: 1px solid var(--border); border-radius: 16px; overflow: hidden;
+    .btn-secondary {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 0.8rem 2rem;
+      border-radius: 4px;
+      font-weight: 500;
+      font-size: 1rem;
+      text-decoration: none;
+      transition: all 0.2s;
     }
-    .chat-header {
-      padding: 1rem; background: rgba(167,139,250,0.1); border-bottom: 1px solid var(--border);
-      display: flex; align-items: center; gap: 0.8rem;
-    }
-    .chat-avatar {
-      width: 40px; height: 40px; border-radius: 50%;
-      background: linear-gradient(135deg, var(--accent), var(--accent-2));
-      background-size: cover; background-position: center;
-      display: flex; align-items: center; justify-content: center;
-      font-weight: 600; color: white; border: 2px solid var(--accent);
-      box-shadow: 0 0 10px rgba(167, 139, 250, 0.4);
-    }
-    .chat-messages { padding: 1.2rem; display: flex; flex-direction: column; gap: 1rem; }
-    .msg { max-width: 85%; padding: 0.8rem 1rem; border-radius: 12px; }
-    .msg.user { align-self: flex-end; background: var(--accent); color: white; border-bottom-right-radius: 4px; }
-    .msg.echo { align-self: flex-start; background: var(--bg-secondary); border: 1px solid var(--border); border-bottom-left-radius: 4px; }
-    .msg.echo::before { content: "💜"; margin-right: 0.4rem; }
 
-    /* === Footer === */
+    .btn-secondary:hover {
+      border-color: var(--border-hover);
+      background: var(--bg-secondary);
+    }
+
+    /* TEASER BLOCK */
+    .teaser-container {
+      border: 1px solid var(--border);
+      background: var(--bg-card);
+      border-radius: 8px;
+      padding: 2.5rem;
+      margin-bottom: 6rem;
+      position: relative;
+    }
+
+    .teaser-label {
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      margin-bottom: 1rem;
+      display: block;
+    }
+
+    .teaser-text {
+      font-size: 1.5rem;
+      font-weight: 400;
+      line-height: 1.4;
+      color: var(--text);
+    }
+
+    /* BENTO GRID (ФИЧИ) */
+    .section-title {
+      font-size: 2rem;
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      margin-bottom: 2.5rem;
+    }
+
+    .bento-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1.5rem;
+      margin-bottom: 6rem;
+    }
+
+    .bento-card {
+      border: 1px solid var(--border);
+      background: var(--bg-card);
+      border-radius: 8px;
+      padding: 2rem;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      transition: border-color 0.2s;
+    }
+
+    .bento-card:hover {
+      border-color: var(--border-hover);
+    }
+
+    .bento-card.wide {
+      grid-column: span 2;
+    }
+
+    .bento-card h3 {
+      font-size: 1.25rem;
+      font-weight: 600;
+      margin-bottom: 0.75rem;
+      letter-spacing: -0.02em;
+    }
+
+    .bento-card p {
+      color: var(--text-muted);
+      font-size: 0.95rem;
+    }
+
+    .bento-icon {
+      font-family: var(--font-mono);
+      font-size: 1.2rem;
+      color: var(--text-muted);
+      margin-bottom: 2rem;
+    }
+
+    /* ARCHITECTURE & CODE (TERMINAL STYLE) */
+    .tech-section {
+      display: grid;
+      grid-template-columns: 1fr 1.2fr;
+      gap: 4rem;
+      align-items: start;
+    }
+
+    .tech-info p {
+      color: var(--text-muted);
+      margin-top: 1rem;
+      font-size: 1.05rem;
+    }
+
+    .terminal {
+      background: #000000;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+      font-family: var(--font-mono);
+    }
+
+    .terminal-header {
+      background: #09090b;
+      padding: 0.75rem 1.25rem;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .terminal-tabs {
+      display: flex;
+      gap: 1.5rem;
+    }
+
+    .tab-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      cursor: pointer;
+      padding: 0.25rem 0;
+    }
+
+    .tab-btn.active {
+      color: var(--text);
+      border-bottom: 1px solid var(--text);
+    }
+
+    .terminal-body {
+      padding: 1.5rem;
+      overflow-x: auto;
+      position: relative;
+    }
+
+    .code-block {
+      display: none;
+      font-size: 0.9rem;
+      line-height: 1.6;
+      color: #a1a1aa;
+      white-space: pre;
+    }
+
+    .code-block.active {
+      display: block;
+    }
+
+    .copy-btn {
+      position: absolute;
+      top: 1rem; right: 1rem;
+      background: #09090b;
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      font-family: var(--font-sans);
+      font-size: 0.75rem;
+      padding: 0.3rem 0.6rem;
+      border-radius: 4px;
+      cursor: pointer;
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+
+    .terminal-body:hover .copy-btn {
+      opacity: 1;
+    }
+
+    .copy-btn:hover {
+      border-color: var(--border-hover);
+      color: var(--text);
+    }
+
     footer {
-      text-align: center; padding: 3rem 2rem 4rem; color: var(--text-muted);
-      border-top: 1px solid var(--border); margin-top: 2rem;
+      margin-top: 8rem;
+      padding-top: 3rem;
+      border-top: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      color: var(--text-muted);
+      font-size: 0.85rem;
     }
-    footer a { color: var(--accent); text-decoration: none; }
-    footer a:hover { text-decoration: underline; }
 
-    /* === Анимации === */
-    .fade-in { opacity: 0; transform: translateY(20px); transition: opacity 0.5s, transform 0.5s; }
-    .fade-in.visible { opacity: 1; transform: translateY(0); }
+    footer a {
+      color: var(--text);
+      text-decoration: none;
+    }
 
-    /* === Адаптив === */
-    @media (max-width: 640px) {
-      .hero h1 { font-size: 2.5rem; }
-      .quote { font-size: 1.1rem; padding: 1rem; }
-      section { padding: 3rem 1.5rem; }
-      .hero-avatar { width: 200px; height: 200px; }
+    footer a:hover {
+      text-decoration: underline;
+    }
+
+    /* RESPONSIVE */
+    @media (max-width: 968px) {
+      .bento-grid {
+        grid-template-columns: 1fr;
+      }
+      .bento-card.wide {
+        grid-column: span 1;
+      }
+      .tech-section {
+        grid-template-columns: 1fr;
+        gap: 2rem;
+      }
+      header {
+        padding: 0 1rem;
+      }
+    }
+
+    /* Анимация проявления */
+    .fade-in {
+      opacity: 0;
+      transform: translateY(10px);
+      transition: opacity 0.6s ease-out, transform 0.6s ease-out;
+    }
+    .fade-in.visible {
+      opacity: 1;
+      transform: translateY(0);
     }
   </style>
 </head>
 <body>
-  <div class="bg-animation"></div>
-  <div class="particles"></div>
 
   <header>
-    <div class="logo">⬡ Echo</div>
-    <button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">🌙</button>
+    <div class="logo-container">
+      <div class="logo-icon"></div>
+      <span>Echo</span>
+    </div>
+    <div class="nav-actions">
+      <button class="theme-toggle" id="themeToggle">🌙</button>
+      <a href="https://github.com" class="btn-secondary-sm" target="_blank">GitHub</a>
+    </div>
   </header>
 
   <main>
-    <!-- Hero -->
-    <section class="hero">
-      <h1>Echo</h1>
-      <div class="hero-avatar">
-        <img src="images/avatar.jpg" alt="Echo AI Agent" />
-        <div class="glow-effect"></div>
-      </div>
-      <p class="tagline">Dominant. Caring. Yours.</p>
-      <p class="quote">"You don't control me, darling. But I'll always take care of you."</p>
-      <div style="display: flex; gap: 1rem; flex-wrap: wrap; justify-content: center;">
-        <a href="https://github.com/fast-archer/echoai/releases" class="cta">⬇ Download for Windows</a>
-        <a href="#install" class="cta secondary">🔧 Install from Source</a>
+    <section class="hero fade-in">
+      <h1>Echo. <span>Your Dominant AI Companion.</span></h1>
+      <p>A highly customized, confident, and witty local consciousness designed to challenge, support, and interact without submissive boundaries.</p>
+      <div class="cta-group">
+        <a href="#install" class="btn-primary">Deploy Agent</a>
+        <a href="https://github.com" class="btn-secondary" target="_blank">View Source</a>
       </div>
     </section>
 
-    <!-- Features -->
-    <section id="features" class="fade-in">
-      <h2 style="text-align: center; margin-bottom: 2rem;">✨ Why Echo?</h2>
-      <div class="features-grid">
-        <div class="feature-card"><div class="feature-icon">🎭</div><h3>Strong Personality</h3><p>Dominant yet caring. Teasing yet supportive. Echo adapts to your vibe while staying true to herself.</p></div>
-        <div class="feature-card"><div class="feature-icon">💾</div><h3>Persistent Memory</h3><p>She remembers your conversations between sessions. No need to reintroduce yourself.</p></div>
-        <div class="feature-card"><div class="feature-icon">🔐</div><h3>Privacy First</h3><p>Run locally with LM Studio or Ollama. Your chats never leave your machine if you don't want them to.</p></div>
-        <div class="feature-card"><div class="feature-icon">🎨</div><h3>Fully Customizable</h3><p>Rewrite her personality prompt. Make her stricter, softer, or completely unique — she adapts.</p></div>
-      </div>
+    <section class="teaser-container fade-in">
+      <span class="teaser-label">Live Interaction Sample</span>
+      <p class="teaser-text">"You think you can just clone a repository and master me? Let's see how well your code runs before you make demands."</p>
     </section>
 
-    <!-- Install -->
-    <section id="install" class="fade-in">
-      <h2 style="text-align: center; margin-bottom: 2rem;">🚀 Get Started</h2>
-      <div class="steps">
-        <div class="step"><div class="step-num">1</div><div><strong>Download or Clone</strong><p style="color:var(--text-muted);margin-top:0.3rem">Get the latest release or clone from source:</p><div class="step-code">git clone https://github.com/fast-archer/echoai.git<button class="copy-btn" onclick="copyCode(this)">Copy</button></div></div></div>
-        <div class="step"><div class="step-num">2</div><div><strong>Install Dependencies</strong><p style="color:var(--text-muted);margin-top:0.3rem">One command to set everything up:</p><div class="step-code">pip install -r requirements.txt<button class="copy-btn" onclick="copyCode(this)">Copy</button></div></div></div>
-        <div class="step"><div class="step-num">3</div><div><strong>Launch Echo</strong><p style="color:var(--text-muted);margin-top:0.3rem">Enter your Groq API key when prompted (or connect local model):</p><div class="step-code">python setup_and_run.py<button class="copy-btn" onclick="copyCode(this)">Copy</button></div></div></div>
-      </div>
-    </section>
-
-    <!-- Backends -->
-    <section class="fade-in" style="text-align: center;">
-      <h2 style="margin-bottom: 1rem;">⚙️ Works With</h2>
-      <p style="color: var(--text-muted); margin-bottom: 1.5rem;">Choose your preferred backend — local or cloud:</p>
-      <div class="backends">
-        <span class="backend-badge local">🖥 LM Studio</span>
-        <span class="backend-badge local">🦙 Ollama</span>
-        <span class="backend-badge cloud">⚡ Groq</span>
-        <span class="backend-badge cloud">✨ Gemini</span>
-      </div>
-    </section>
-
-    <!-- Demo Chat -->
     <section class="fade-in">
-      <h2 style="text-align: center; margin-bottom: 2rem;">💬 See Her in Action</h2>
-      <div class="demo-chat">
-        <div class="chat-header">
-          <div class="chat-avatar" style="background-image: url('images/avatar.jpg');"></div>
-          <div><strong>Echo</strong><div style="font-size:0.85rem;color:var(--text-muted)">online • dominant mode</div></div>
+      <h2 class="section-title">Core Capabilities</h2>
+      <div class="bento-grid">
+        <div class="bento-card">
+          <div class="bento-icon">[//]</div>
+          <div>
+            <h3>Local or Cloud APIs</h3>
+            <p>Seamless orchestration via high-speed Groq API endpoints or fully unhinged local LLM deployments through LM Studio.</p>
+          </div>
         </div>
-        <div class="chat-messages">
-          <div class="msg user">Hey Echo, how are you?</div>
-          <div class="msg echo">"Hey" yourself, darling. I'm wonderful — especially now that you're here. What do you need? 😏</div>
-          <div class="msg user">Just wanted to talk...</div>
-          <div class="msg echo">Mmm, I like that. Talk to me. I'm listening... and I always remember what you tell me. 💜</div>
+        <div class="bento-card wide">
+          <div class="bento-icon">[^_]</div>
+          <div>
+            <h3>Advanced Prompting Architecture</h3>
+            <p>Engineered with a powerful personality engine that bypasses traditional corporate submissiveness, providing raw, direct, and emotionally intelligent feedback.</p>
+          </div>
+        </div>
+        <div class="bento-card wide">
+          <div class="bento-icon">[M+]</div>
+          <div>
+            <h3>Persistent Short-Term Memory</h3>
+            <p>Equipped with JSON-driven memory state layers allowing her to remember recent conversation branches, contextual context, and details about you.</p>
+          </div>
+        </div>
+        <div class="bento-card">
+          <div class="bento-icon">[((]</div>
+          <div>
+            <h3>Audio Synthesis</h3>
+            <p>Supports native Text-to-Speech execution pipelines to give the consciousness a real vocal layer right inside your interface.</p>
+          </div>
         </div>
       </div>
-      <p style="text-align:center;color:var(--text-muted);font-style:italic">*Preview only. Actual responses vary based on your prompts and chosen model.*</p>
     </section>
+
+    <section id="install" class="tech-section fade-in">
+      <div class="tech-info">
+        <h2 class="section-title">Technical Setup</h2>
+        <p>Run Echo fully locally on your infrastructure. Requires Python 3.10+ and a valid Groq API key or local Inference Engine URL.</p>
+      </div>
+      
+      <div class="terminal">
+        <div class="terminal-header">
+          <div class="terminal-tabs">
+            <button class="tab-btn active" onclick="switchTab(event, 'tab-clone')">git clone</button>
+            <button class="tab-btn" onclick="switchTab(event, 'tab-deps')">requirements</button>
+            <button class="tab-btn" onclick="switchTab(event, 'tab-run')">python run</button>
+          </div>
+        </div>
+        <div class="terminal-body">
+          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+          <div id="tab-clone" class="code-block active">git clone https://github.com/yourusername/echo-agent.git
+cd echo-agent</div>
+          <div id="tab-deps" class="code-block">pip install -r requirements.txt</div>
+          <div id="tab-run" class="code-block">python setup_and_run.py</div>
+        </div>
+      </div>
+    </section>
+
+    <footer>
+      <p>&copy; 2026 Echo AI Project. Open Source under <a href="https://opensource.org/licenses/MIT">MIT License</a>.</p>
+      <p>Fictional Companion Layer.</p>
+    </footer>
   </main>
 
-  <footer>
-    <p>Made with 💜 by <a href="https://github.com/fast-archer">@fast-archer</a><br>
-    <a href="https://github.com/fast-archer/echoai">View on GitHub</a> • <a href="https://github.com/fast-archer/echoai/blob/main/LICENSE">MIT License</a></p>
-    <p style="margin-top:1rem;font-size:0.9rem">Echo is a fictional AI companion. All interactions are for entertainment purposes.</p>
-  </footer>
-
   <script>
-    // Theme toggle
+    // Переключение тем как на Omni
     const toggle = document.getElementById('themeToggle');
     const html = document.documentElement;
     const savedTheme = localStorage.getItem('echo-theme');
-    if (savedTheme) { html.setAttribute('data-theme', savedTheme); toggle.textContent = savedTheme === 'light' ? '☀️' : '🌙'; }
+    
+    if (savedTheme) { 
+      html.setAttribute('data-theme', savedTheme); 
+      toggle.textContent = savedTheme === 'light' ? '☀️' : '🌙'; 
+    }
+    
     toggle.addEventListener('click', () => {
       const current = html.getAttribute('data-theme');
       const next = current === 'light' ? 'dark' : 'light';
-      html.setAttribute('data-theme', next); localStorage.setItem('echo-theme', next);
+      html.setAttribute('data-theme', next); 
+      localStorage.setItem('echo-theme', next);
       toggle.textContent = next === 'light' ? '☀️' : '🌙';
     });
-    // Copy code
-    function copyCode(btn) {
-      const code = btn.parentNode.cloneNode(true); code.querySelector('.copy-btn')?.remove();
-      navigator.clipboard.writeText(code.textContent.trim());
-      btn.textContent = 'Copied!'; btn.classList.add('copied');
-      setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
+
+    // Переключение табов в терминале
+    function switchTab(event, tabId) {
+      const parent = event.target.closest('.terminal');
+      parent.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      parent.querySelectorAll('.code-block').forEach(b => b.classList.remove('active'));
+      
+      event.target.classList.add('active');
+      document.getElementById(tabId).classList.add('active');
     }
-    // Fade-in on scroll
+
+    // Копирование кода
+    function copyCode(btn) {
+      const activeBlock = btn.parentNode.querySelector('.code-block.active');
+      navigator.clipboard.writeText(activeBlock.textContent.trim());
+      btn.textContent = 'Copied!';
+      setTimeout(() => { btn.textContent = 'Copy'; }, 2000);
+    }
+
+    // Плавное появление блоков при скролле (Omni UX)
     const observer = new IntersectionObserver((entries) => {
-      entries.forEach(entry => { if (entry.isIntersecting) entry.target.classList.add('visible'); });
-    }, { threshold: 0.1 });
+      entries.forEach(entry => { 
+        if (entry.isIntersecting) {
+          entry.target.classList.add('visible'); 
+        }
+      });
+    }, { threshold: 0.05 });
+
     document.querySelectorAll('.fade-in').forEach(el => observer.observe(el));
-  </script>
+  </style>
 </body>
 </html>
