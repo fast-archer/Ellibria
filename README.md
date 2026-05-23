@@ -92,4 +92,3 @@ Contact: epidermis_essential@proton.me
 ## 🌐 Contact
 
 - **Email**: epidermis_essential@proton.me  
-- **Discord**: [Join server](https://discord.gg/yT8e83P4hz)
