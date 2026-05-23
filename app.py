@@ -195,7 +195,9 @@ def update_user_profile(recent_history):
     except Exception:
         pass
 # =================================================================
-def generate(messages_for_llm):
+def generate(messages_for_llm, retry_count=0):
+    global client, MODEL, ENGINE  # Объявляем глобальными, чтобы мочь их перезаписать
+    
     tokens_left = "N/A"
     actual_model = MODEL
 
@@ -226,6 +228,8 @@ def generate(messages_for_llm):
 
         except Exception as e:
             error_message = str(e).lower()
+            
+            # Логика №1: Rate Limit для Groq (которая у тебя уже была)
             if "429" in error_message and "groq" in ENGINE.lower():
                 logging.warning("[FALLBACK] Лимит исчерпан. Переключаюсь на llama-3.1-8b-instant...")
                 fallback_model = "llama-3.1-8b-instant"
@@ -239,6 +243,21 @@ def generate(messages_for_llm):
                 parsed = raw_resp.parse()
                 tokens_left = raw_resp.headers.get("x-ratelimit-remaining-tokens", "N/A (Fallback)")
                 return parsed.choices[0].message.content.strip(), tokens_left, fallback_model
+            
+            # Логика №2: Отвал локальной модели (LM Studio / Ollama закрыли)
+            if ("connection" in error_message or "connect" in error_message) and retry_count < 1:
+                logging.warning(f"[FALLBACK] Локальный движок {ENGINE} недоступен. Ищу замену...")
+                try:
+                    # Перезапускаем детектор
+                    from detector import get_engine
+                    client, MODEL, ENGINE = get_engine()
+                    actual_model = MODEL
+                    # Рекурсивно пробуем сгенерировать еще раз с новым движком
+                    return generate(messages_for_llm, retry_count=1)
+                except Exception as fallback_error:
+                    logging.error(f"Не удалось найти запасной движок: {fallback_error}")
+                    raise e # Если запасного ключа нет, выкидываем ошибку
+            
             raise e
 
 def get_dynamic_state(text, mode):
@@ -440,7 +459,33 @@ def chat():
         except Exception as e:
             logging.error(f"Error loading settings in chat: {e}")
 
-    context_depth = int(settings.get("contextDepth", 6))
+    base_depth = int(settings.get("contextDepth", 15)) # Теперь база по умолчанию 15 (для мощных ПК)
+    safe_mode = settings.get("safeMode", True) # Читаем состояние галочки
+    
+    # === ДИНАМИЧЕСКАЯ ГЛУБИНА КОНТЕКСТА ===
+    engine_safe = str(ENGINE).lower() if ENGINE else ""
+    
+    if "local" in engine_safe or "lm studio" in engine_safe or "ollama" in engine_safe:
+        if safe_mode:
+            # Safe Mode ВКЛЮЧЕН: Жестко спасаем видеокарту (идеально для 3-4 ГБ VRAM)
+            model_safe = str(MODEL).lower() if MODEL else ""
+            if any(x in model_safe for x in ["7b", "8b", "9b", "llama", "mistral"]):
+                context_depth = min(base_depth, 6) 
+            elif any(x in model_safe for x in ["1b", "2b", "3b", "phi", "gemma", "qwen"]):
+                context_depth = min(base_depth, 12)
+            else:
+                context_depth = min(base_depth, 8)
+        else:
+            # Safe Mode ВЫКЛЮЧЕН: Пользователь уверен в своем ПК, отдаем всю базовую память!
+            context_depth = base_depth
+            
+    elif "groq" in engine_safe:
+        context_depth = max(base_depth, 20)  # Groq: средний лимит TPM 
+    elif "gemini" in engine_safe:
+        context_depth = max(base_depth, 40)  # Gemini: монстр контекста
+    else:
+        context_depth = base_depth
+
     history = session["messages"][-context_depth:]
 
     # 2. Собираем системный промпт (Базовый + Краткая память + Архив Личности)
@@ -448,7 +493,7 @@ def chat():
     
     mem = load_memory()
     if mem.get("summary"):
-        summary_trimmed = "\n".join(mem["summary"].split("\n")[-5:])
+        summary_trimmed = "\n".join(mem["summary"].split("\n")[-3:])
         dynamic_prompt += f"\n\n[CORE MEMORY / CONTEXT]:\n{summary_trimmed}\n(Use this context to remember who the user is and what you talked about recently)."
 
     profile_facts = load_user_profile()
@@ -462,7 +507,7 @@ def chat():
                 with open(LIKED_PATH, "r", encoding="utf-8") as f:
                     liked_msgs = json.load(f)
             if liked_msgs:
-                examples = "\n\n".join([f'"{m}"' for m in liked_msgs[-5:]])
+                examples = "\n\n".join([f'"{m[:300]}"' for m in liked_msgs[-3:]])
                 dynamic_prompt += f"\n\n[STYLE EXAMPLES - USER LOVED THESE RESPONSES. Mirror this tone, length and style]:\n{examples}"
     except Exception:
         pass
@@ -485,7 +530,7 @@ def chat():
         *history,
         {"role": "user", "content": user_msg}
     ]
-
+    
     # 3. Генерируем ответ бота
     try:
         bot_msg, tokens_left, actual_model = generate(messages)
@@ -498,8 +543,8 @@ def chat():
     session["updated_at"] = datetime.now().isoformat()
     
     # --- НОВАЯ ЛОГИКА ROLLING SUMMARY ---
-    context_depth = int(settings.get("contextDepth", 6))
-    max_messages = context_depth * 2 # 1 шаг = 2 сообщения (вопрос+ответ)
+    # Мы больше не читаем context_depth из файла, а используем динамический, который вычислили выше!
+    max_messages = context_depth * 2 # Храним в буфере в 2 раза больше сообщений перед фоновым сжатием
     
     if len(session["messages"]) > max_messages:
         dropped_messages = session["messages"][:-max_messages]
@@ -635,7 +680,8 @@ def save_settings():
         "voiceLang": data.get("voiceLang", "en-US"),
         "theme": data.get("theme", "dark"),
         "selectedMode": data.get("selectedMode", "Default"),
-        "contextDepth": int(data.get("contextDepth", 6))
+        "contextDepth": int(data.get("contextDepth", 15)), # Увеличим базовую память до 15!
+        "safeMode": data.get("safeMode", True) # <--- ДОБАВИТЬ ЭТО
     }
     try:
         with file_lock:

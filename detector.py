@@ -38,9 +38,21 @@ def get_engine():
     # 1. LM Studio
     if _ping("http://localhost:1234"):
         print("[AUTO] LM Studio обнаружен → локальная модель")
+        loaded_model = config.LOCAL_MODEL
+        try:
+            # ВОТ ЭТА СТРОЧКА БЫЛА ПРОПУЩЕНА:
+            resp = requests.get("http://localhost:1234/v1/models", timeout=1.5)
+            
+            if resp.status_code == 200:
+                models_info = resp.json()
+                if "data" in models_info and len(models_info["data"]) > 0:
+                    loaded_model = models_info["data"][0]["id"]
+        except Exception:
+            pass 
+
         return (
             OpenAI(base_url=config.LMSTUDIO_URL.strip(), api_key="lm-studio"),
-            config.LOCAL_MODEL,
+            loaded_model,
             "LM Studio (local)"
         )
 
