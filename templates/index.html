@@ -144,13 +144,17 @@
     .typing-dot:nth-child(1) { animation-delay: -0.32s; }
     .typing-dot:nth-child(2) { animation-delay: -0.16s; }
     @keyframes typing { 0%, 80%, 100% { transform: scale(0); } 40% { transform: scale(1); } }
+    @keyframes floatAvatar {
+    0%, 100% { transform: translateY(0px); }
+    50% { transform: translateY(-5px); }
+}
     .msg-user { background: var(--bg2); color: var(--text); align-self: flex-end; border: 1px solid var(--border); border-bottom-right-radius: 4px; }
     .msg-echo { background: transparent; color: var(--text); align-self: flex-start; max-width: 90%; padding: 10px 0; }
     .msg-error { background: #7f1d1d33; color: #f87171; border: 1px solid #7f1d1d; align-self: center; max-width: 90%; font-size: 0.85rem; }
 
     .msg-text { white-space: pre-wrap; }
     .msg-echo .msg-text { white-space: normal; line-height: 1.5; } 
-    .msg-echo .msg-text pre { background: #0d1117; padding: 12px; border-radius: 8px; overflow-x: auto; margin: 10px 0; border: 1px solid var(--border); }
+    .msg-echo .msg-text pre { background: var(--bg3); padding: 12px; border-radius: 8px; overflow-x: auto; margin: 10px 0; border: 1px solid var(--border); }
     .msg-echo .msg-text code { font-family: 'Consolas', 'Courier New', monospace; font-size: 0.9rem; }
     .msg-echo .msg-text p { margin-bottom: 10px; }
     .msg-echo .msg-text p:last-child { margin-bottom: 0; }
@@ -318,9 +322,9 @@
     ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 10px; }
     ::-webkit-scrollbar-thumb:hover { background: var(--text2); }
       </style>
-      <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+      <script src="{{ url_for('static', filename='js/marked.min.js') }}"></script>
+<link rel="stylesheet" href="{{ url_for('static', filename='js/github-dark.min.css') }}">
+<script src="{{ url_for('static', filename='js/highlight.min.js') }}"></script>
 </head>
 <body>
 
@@ -392,7 +396,7 @@
           </div>
           <div class="status-pill" title="Mode">
             <svg viewBox="0 0 24 24" fill="none"><path d="M12 2a5 5 0 0 0-5 5v3H3v12h18V10h-4V7a5 5 0 0 0-5-5zM9 7a3 3 0 0 1 6 0v3H9V7zm10 13H5V12h14v8z"/></svg>
-            <span class="status-pill-val" id="val-mode">BDSM</span>
+            <span class="status-pill-val" id="val-mode">DEFAULT</span>
           </div>
           <div class="status-pill" title="Model">
             <svg viewBox="0 0 24 24" fill="none"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"/><rect x="2" y="14" width="20" height="8" rx="2" ry="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>
@@ -477,7 +481,8 @@
       <div class="form-group">
         <label>Personality Mode</label>
         <select id="s-mode" class="form-control" onchange="changeMode()">
-          <option value="custom">Custom character</option>
+          <option value="Custom">Custom character</option>
+          <option value="Default">Default</option>
           <option value="Dommy">Dommy</option>
           <option value="Hacker">Hacker</option>
           <option value="Critic">Critic</option>
