@@ -128,6 +128,7 @@ window.addEventListener('DOMContentLoaded', () => {
         voiceLang = s.voiceLang || "en-US";
         theme = s.theme || "dark";
         selectedMode = s.selectedMode || "Default";
+        document.getElementById('s-safemode').checked = s.safeMode !== false;
         sysPrompt = data.system_prompt || "";
         SYSTEM_DEFAULT_PROMPT = data.default_prompt || "";
         
@@ -499,6 +500,7 @@ function saveSettings() {
     selectedMode = document.getElementById('s-mode').value;
     theme = document.getElementById('s-theme').value;
     _userOverrideTheme = true;
+    const safeMode = document.getElementById('s-safemode').checked;
 
     document.getElementById('panel-name').textContent = agentName;
     document.getElementById('welcome-title').textContent = agentName;
@@ -513,7 +515,8 @@ function saveSettings() {
         agentName: agentName,
         voiceLang: voiceLang,
         theme: theme,
-        selectedMode: selectedMode
+        selectedMode: selectedMode,
+        safeMode: safeMode
     })
     }).catch(err => console.error(err));
 }
