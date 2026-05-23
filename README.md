@@ -1,7 +1,7 @@
 ### Ellibria — AI Companion with Personality
 
 <img src="https://github.com/fast-archer/Ellibria/blob/main/docs/screenshot.png" 
-width="720" alt="Echo">
+width="720" alt="Ellibria">
 
 **[Ellibria](https://fast-archer.github.io/Ellibria/)** is a locally-hosted AI agent with a distinctive personality engine,
 persistent memory, and support for multiple backends — designed to feel less
@@ -13,8 +13,8 @@ like a tool and more like a presence.
 
 - **Personality modes** — switch between Custom, Dommy, Hacker,
   Critic,Pick-Me,Therapist,Friend and more via the settings panel
-- **Personality Archive” (Core Personality Engine)**
-- **Full Data Management (Profile Management)**
+- **Personality Archive** — persistent facts about you, auto-updated after each conversation, fully editable
+- **Full data control** — export, import, and edit your profile archive manually at any time
 - **Multithreaded Architecture**
 - **Persistent memory** — conversations are summarized and retained between
   sessions, stored locally in `~/.echo-agent/`
@@ -22,6 +22,10 @@ like a tool and more like a presence.
   in one click
 - **Multiple themes** — Dark, Light, Purple, Night, Terminal
 - **Voice output** — natural female TTS with language selection
+- - **Liked responses as style memory** — heart a response and Ellibria learns your preferred tone over time
+- **Search with navigation** — search history and jump directly to the matched message bubble
+- **Automatic port selection** — no conflicts if port 5000 is occupied
+- **Fully offline** — no CDN dependencies, all assets bundled locally
 - **Smart backend detection** — automatically connects to LM Studio, Ollama,
   Groq, or Gemini Flash depending on what's available
 - **Secure local config** — API keys never leave your machine
@@ -62,10 +66,10 @@ All data is stored locally on your machine:
 
 | Platform | Path |
 |---|---|
-| Windows | `C:\Users\<You>\.echo-agent\` |
-| Linux | `~/.echo-agent\` |
+| Windows | `C:\Users\<You>\.ellibria-agent\` |
+| Linux   | `~/.ellibria-agent\`              |
 
-Files: `config.json`, `chat_history.json`, `system_prompt.txt`
+Files: `config.json`, `sessions.json`, `memory.json`, `system_prompt.txt`, `user_profile.json`, `liked_messages.json`, `error.log`
 
 ---
 
