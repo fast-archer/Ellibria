@@ -11,8 +11,11 @@ like a tool and more like a presence.
 
 ## ✨ Features
 
-- **Personality modes** — switch between Mistress, Mr. Robot, Psychotherapist,
-  Loyal Friend, and more via the settings panel
+- **Personality modes** — switch between Custom, Dommy, Hacker,
+  Critic,Pick-Me,Therapist,Friend and more via the settings panel
+- **Personality Archive” (Core Personality Engine)**
+- **Full Data Management (Profile Management)**
+- **Multithreaded Architecture**
 - **Persistent memory** — conversations are summarized and retained between
   sessions, stored locally in `~/.echo-agent/`
 - **Fully customizable system prompt** — rewrite her behavior from scratch
