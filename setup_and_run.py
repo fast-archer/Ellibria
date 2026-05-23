@@ -34,18 +34,18 @@ def set_icon(win):
         except Exception:
             pass
 
-def start_flask(api_key):
+def start_flask(api_key, port=5000):
     os.environ["GROQ_API_KEY"] = api_key
     os.environ["ELLIBRIA_BASE_DIR"] = BASE_DIR
     os.environ["SYSTEM_THEME"] = "dark" if is_windows_dark_mode() else "light"
     import app as flask_app
-    flask_app.app.run(host="127.0.0.1", port=5000, debug=False, use_reloader=False)
+    flask_app.app.run(host="127.0.0.1", port=port, debug=False, use_reloader=False)
 
-def open_webview():
+def open_webview(port=5000):
     import webview
     webview.create_window(
         "Ellibria",
-        "http://127.0.0.1:5000",
+        f"http://127.0.0.1:{port}",
         width=1100,
         height=800,
         resizable=True,
@@ -63,19 +63,32 @@ def save_and_launch(key, win):
     win.destroy()
     launch(k)
 
+def find_free_port(start=5000, end=5010):
+    import socket
+    for port in range(start, end):
+        try:
+            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            s.bind(("127.0.0.1", port))
+            s.close()
+            return port
+        except OSError:
+            continue
+    raise RuntimeError("Нет свободного порта в диапазоне 5000–5010")
+
 def launch(api_key):
     import socket
-    t = threading.Thread(target=start_flask, args=(api_key,), daemon=True)
+    port = find_free_port()
+    t = threading.Thread(target=start_flask, args=(api_key, port), daemon=True)
     t.start()
     for _ in range(20):
         time.sleep(0.5)
         try:
-            s = socket.create_connection(("127.0.0.1", 5000), timeout=1)
+            s = socket.create_connection(("127.0.0.1", port), timeout=1)
             s.close()
             break
         except OSError:
             continue
-    open_webview()
+    open_webview(port)
 
 def show_setup():
     # Цвета из index.html dark theme

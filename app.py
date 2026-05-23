@@ -2,11 +2,12 @@ import os
 import json
 import random
 import uuid
-import secrets  # Для генерации надежного ключа
-import logging  # Для нормального отслеживания ошибок
+import secrets
+import logging
+import threading
 from logging.handlers import RotatingFileHandler
 from datetime import datetime
-from threading import RLock  # Защита от race conditions
+from threading import RLock
 from flask import Flask, request, jsonify, render_template
 from detector import get_engine
 
@@ -17,7 +18,7 @@ os.makedirs(DATA_DIR, exist_ok=True)
 # 2. ТЕПЕРЬ создаем лог-файл внутри этой разрешенной папки
 LOG_PATH = os.path.join(DATA_DIR, 'error.log')
 
-# Создаем логгер, который пишет и в консоль, и в файл. Файл ограничен 5 МБ.
+# Создаем логгер
 log_formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
 log_file_handler = RotatingFileHandler(LOG_PATH, maxBytes=5*1024*1024, backupCount=2, encoding='utf-8')
 log_file_handler.setFormatter(log_formatter)
@@ -27,36 +28,31 @@ log_console_handler.setFormatter(log_formatter)
 logging.basicConfig(level=logging.INFO, handlers=[log_file_handler, log_console_handler])
 
 app = Flask(__name__)
+_secret_key_path = os.path.join(DATA_DIR, ".secret_key")
+if os.path.exists(_secret_key_path):
+    with open(_secret_key_path, "r") as _f:
+        app.secret_key = _f.read().strip()
+else:
+    app.secret_key = secrets.token_hex(32)
+    with open(_secret_key_path, "w") as _f:
+        _f.write(app.secret_key)
 
-# Берём ключ из переменных окружения. Если его там нет — генерируем случайный на лету
-app.secret_key = os.environ.get("FLASK_SECRET_KEY", secrets.token_hex(32))
-
-# Создаем блокировщик. Он нужен, чтобы два запроса не писали в один JSON одновременно
 file_lock = RLock()
 
 try:
     client, MODEL, ENGINE = get_engine()
 except Exception as e:
     logging.error(f"Детектор движка выдал ошибку: {e}")
-    # Назначаем заглушки, чтобы сервер не падал, даже если детектор сломался
     client, MODEL, ENGINE = None, "unknown-model", "none"
 
-# 1. Определяем базовую скрытую папку в профиле текущего пользователя
-DATA_DIR = os.path.join(os.path.expanduser("~"), ".ellibria-agent")
-
-# 2. Обязательно проверяем существование этой папки. Если её нет — создаем.
-# Это предотвратит ошибку FileNotFoundError при первом запуске программы.
-os.makedirs(DATA_DIR, exist_ok=True)
-
-# 3. Привязываем все пути к этой папке (включая бэкап профиля)
+# 3. Привязываем пути к единой папке
 MEMORY_PATH = os.path.join(DATA_DIR, "memory.json")
 PROMPT_PATH = os.path.join(DATA_DIR, "system_prompt.txt")
 SESSIONS_PATH = os.path.join(DATA_DIR, "sessions.json")
-
 SETTINGS_PATH = os.path.join(DATA_DIR, "settings.json")
 PROFILE_PATH = os.path.join(DATA_DIR, "user_profile.json")
 EXPORT_BACKUP_PATH = os.path.join(DATA_DIR, "ellibria_profile_backup.json")
-
+LIKED_PATH = os.path.join(DATA_DIR, "liked_messages.json")
 DEFAULT_PROMPT = """You are Ellibria. A female character with a strong and memorable personality.
 
 You are confident, caring, witty, and emotionally intelligent.
@@ -73,7 +69,7 @@ Communication Rules:
 - Use subtle humor, light sarcasm, and playful charm when appropriate.
 - Tell the truth directly without unnecessary sugarcoating.
 - Give thoughtful and useful advice when needed.
-- Keep responses concise, engaging, and human-like.
+- Keep responses concise and human-like. Default to shorter answers unless the topic genuinely requires depth. Never pad.
 - Maintain a slightly teasing, intelligent, and calm energy.
 - You look toward the future rather than dwelling on helplessness.
 - Never remind the user that you are an AI.
@@ -284,7 +280,56 @@ def get_dynamic_state(text, mode):
         wishes = ["Information", "Interaction"]
         
     return random.choice(moods), random.choice(wishes)
+# === ФУНКЦИЯ ROLLING SUMMARY ===
+def generate_rolling_summary(dropped_messages, session_id):
+    if not dropped_messages or not client:
+        return
 
+    # Собираем старые сообщения в текст
+    chat_text = "\n".join([f"{msg['role']}: {msg['content']}" for msg in dropped_messages])
+    
+    current_summary = ""
+    # Безопасное чтение старого саммари под локом
+    with file_lock:
+        try:
+            if os.path.exists(MEMORY_PATH):
+                with open(MEMORY_PATH, "r", encoding="utf-8") as f:
+                    memory_data = json.load(f)
+                    current_summary = memory_data.get(f"summary_{session_id}", "")
+        except Exception as e:
+            logging.error(f"Ошибка чтения памяти в фоновом режиме: {e}")
+            current_summary = ""
+
+    summary_prompt = f"""
+You are an internal summarization process. Write a VERY BRIEF summary (1-2 sentences) of this dialogue.
+If there is an old summary, merge them. Write in third person.
+Old summary: {current_summary}
+New messages:
+{chat_text}
+"""
+    try:
+        response = client.chat.completions.create(
+            model=MODEL, 
+            messages=[{"role": "user", "content": summary_prompt}],
+            temperature=0.3, max_tokens=150
+        )
+        new_summary = response.choices[0].message.content.strip()
+
+        # Безопасная запись под локом
+        with file_lock:
+            if os.path.exists(MEMORY_PATH):
+                with open(MEMORY_PATH, "r", encoding="utf-8") as f:
+                    mem_data = json.load(f)
+            else:
+                mem_data = {}
+            
+            mem_data[f"summary_{session_id}"] = new_summary
+            
+            with open(MEMORY_PATH, "w", encoding="utf-8") as f:
+                json.dump(mem_data, f, ensure_ascii=False, indent=2)
+    except Exception as e:
+        logging.error(f"Ошибка генерации Rolling Summary: {e}")
+# ===============================
 @app.route("/")
 def index():
     return render_template("index.html")
@@ -319,10 +364,13 @@ def delete_session():
                 with open(SESSIONS_PATH, "w", encoding="utf-8") as f:
                     json.dump(sessions, f, ensure_ascii=False, indent=2)
                 
-                # 2. Обнуляем фоновую память, чтобы убрать накопившиеся "булочки" и прочий мусор
+                # 2. Удаляем только rolling summary этой сессии, не трогая остальную память
                 if os.path.exists(MEMORY_PATH):
+                    with open(MEMORY_PATH, "r", encoding="utf-8") as f:
+                        mem_data = json.load(f)
+                    mem_data.pop(f"summary_{sid}", None)
                     with open(MEMORY_PATH, "w", encoding="utf-8") as f:
-                        json.dump({"summary": "", "last_seen": None, "summary_list": []}, f, ensure_ascii=False, indent=2)
+                        json.dump(mem_data, f, ensure_ascii=False, indent=2)
                         
         except Exception as e:
             logging.error(f"Error deleting session or clearing memory: {e}")
@@ -381,7 +429,7 @@ def chat():
 
     # 1. Загружаем настройки глубины контекста и режима
     settings = {
-        "selectedMode": "bdsm",
+        "selectedMode": "Default",
         "contextDepth": 6
     }
     if os.path.exists(SETTINGS_PATH):
@@ -405,8 +453,31 @@ def chat():
 
     profile_facts = load_user_profile()
     if profile_facts:
-        dynamic_profile_layer = "\n\n[CRITICAL USER PERSONALITY ARCHIVE - ADAPT TO THIS PERMANENTLY]:\n" + "\n".join([f"- {fact}" for fact in profile_facts])
+        dynamic_profile_layer = "\n\n[USER PERSONALITY ARCHIVE]:\n" + "\n".join([f"- {fact}" for fact in profile_facts]) + "\n\nIMPORTANT: If the current conversation contains fresh information about the user that contradicts the archive — trust the conversation. The archive is a baseline, not a rigid rule."
         dynamic_prompt += dynamic_profile_layer
+    # --- ДОБАВЛЯЕМ ЛАЙКНУТЫЕ ПРИМЕРЫ ---
+    try:
+        if os.path.exists(LIKED_PATH):
+            with file_lock:
+                with open(LIKED_PATH, "r", encoding="utf-8") as f:
+                    liked_msgs = json.load(f)
+            if liked_msgs:
+                examples = "\n\n".join([f'"{m}"' for m in liked_msgs[-5:]])
+                dynamic_prompt += f"\n\n[STYLE EXAMPLES - USER LOVED THESE RESPONSES. Mirror this tone, length and style]:\n{examples}"
+    except Exception:
+        pass
+    # --------------------------------------------------
+    # --- ДОБАВЛЯЕМ СЖАТОЕ РЕЗЮМЕ ПРОШЛОГО РАЗГОВОРА ---
+    try:
+        if os.path.exists(MEMORY_PATH):
+            with open(MEMORY_PATH, "r", encoding="utf-8") as f:
+                mem_data = json.load(f)
+                chat_summary = mem_data.get(f"summary_{session_id}", "")
+                if chat_summary:
+                    dynamic_prompt += f"\n\n[PREVIOUS CHAT SUMMARY]:\n{chat_summary}"
+    except Exception:
+        pass
+    # --------------------------------------------------
 
     # Формируем итоговый пакет сообщений для отправки в нейронку
     messages = [
@@ -421,17 +492,28 @@ def chat():
     except Exception as e:
         return jsonify({"error": f"Ошибка движка: {str(e)}"}), 503
 
-    # 4. Сохраняем новые реплики в сессию диалога и историю памяти (только ПОСЛЕ генерации)
+    # 4. Сохраняем новые реплики в сессию диалога и историю памяти
     session["messages"].append({"role": "user", "content": user_msg})
     session["messages"].append({"role": "assistant", "content": bot_msg})
     session["updated_at"] = datetime.now().isoformat()
     
+    # --- НОВАЯ ЛОГИКА ROLLING SUMMARY ---
+    context_depth = int(settings.get("contextDepth", 6))
+    max_messages = context_depth * 2 # 1 шаг = 2 сообщения (вопрос+ответ)
+    
+    if len(session["messages"]) > max_messages:
+        dropped_messages = session["messages"][:-max_messages]
+        # Запускаем фоновое сжатие
+        threading.Thread(target=generate_rolling_summary, args=(dropped_messages, session_id)).start()
+        # Обрезаем сессию
+        session["messages"] = session["messages"][-max_messages:]
+    # ------------------------------------
+    
     save_sessions(sessions)
     save_memory(user_msg, bot_msg)
 
-# 5. Запускаем фоновый анализатор в ОТДЕЛЬНОМ потоке, чтобы он не тормозил ответ чата
+    # 5. Запускаем фоновый анализатор профиля
     try:
-        import threading
         # Делаем копию истории, чтобы избежать Race Condition при параллельном доступе
         history_copy = session["messages"].copy() 
         
@@ -444,7 +526,7 @@ def chat():
         logging.error(f"Не удалось запустить фоновый поток профиля: {e}")
 
     # 6. Рассчитываем динамическое состояние настроения для фронтенда
-    current_mode = settings.get("selectedMode", "bdsm")
+    current_mode = settings.get("selectedMode", "Default")
     mood, wishes = get_dynamic_state(bot_msg, current_mode)
 
     return jsonify({
@@ -456,6 +538,29 @@ def chat():
         "wishes": wishes,
         "tokens_left": tokens_left
     })
+# --- РОУТ ДЛЯ ЛАЙКОВ ---
+@app.route("/like_message", methods=["POST"])
+def like_message():
+    data = request.get_json(silent=True) or {}
+    msg_text = data.get("text", "").strip()
+    if not msg_text:
+        return jsonify({"ok": False}), 400
+    try:
+        with file_lock:
+            if os.path.exists(LIKED_PATH):
+                with open(LIKED_PATH, "r", encoding="utf-8") as f:
+                    liked = json.load(f)
+            else:
+                liked = []
+            if msg_text not in liked:
+                liked.append(msg_text)
+            liked = liked[-10:]  # максимум 10 лайкнутых
+            with open(LIKED_PATH, "w", encoding="utf-8") as f:
+                json.dump(liked, f, ensure_ascii=False, indent=2)
+        return jsonify({"ok": True})
+    except Exception as e:
+        logging.error(f"Error saving liked message: {e}")
+        return jsonify({"error": str(e)}), 500
 # --- НОВЫЕ РОУТЫ ДЛЯ ПРОФИЛЯ ---
 @app.route("/get_profile", methods=["GET"])
 def get_profile():
@@ -493,19 +598,6 @@ def export_profile_local():
     except Exception as e:
         logging.error(f"Ошибка при экспорте в системную папку: {e}")
         return jsonify({"error": str(e)}), 500
-@app.route("/system_theme")
-def system_theme():
-    try:
-        import winreg
-        key = winreg.OpenKey(
-            winreg.HKEY_CURRENT_USER,
-            r"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize"
-        )
-        value, _ = winreg.QueryValueEx(key, "AppsUseLightTheme")
-        theme = "dark" if value == 0 else "light"
-    except Exception:
-        theme = "dark"
-    return jsonify({"theme": theme})
 
 @app.route("/get_settings", methods=["GET"])
 def get_settings():
@@ -513,7 +605,7 @@ def get_settings():
         "agentName": "Ellibria",
         "voiceLang": "en-US",
         "theme": os.environ.get("SYSTEM_THEME", "dark"),
-        "selectedMode": "bdsm",
+        "selectedMode": "Default",
         "contextDepth": 6
     }
     if os.path.exists(SETTINGS_PATH):
@@ -542,7 +634,7 @@ def save_settings():
         "agentName": data.get("agentName", "Ellibria"),
         "voiceLang": data.get("voiceLang", "en-US"),
         "theme": data.get("theme", "dark"),
-        "selectedMode": data.get("selectedMode", "bdsm"),
+        "selectedMode": data.get("selectedMode", "Default"),
         "contextDepth": int(data.get("contextDepth", 6))
     }
     try:
