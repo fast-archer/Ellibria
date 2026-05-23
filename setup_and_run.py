@@ -18,7 +18,7 @@ def is_windows_dark_mode():
     except Exception:
         return True  # дефолт — тёмная
 
-CONFIG_PATH = os.path.join(os.path.expanduser("~"), ".echo-agent", "config.json")
+CONFIG_PATH = os.path.join(os.path.expanduser("~"), ".ellibria-agent", "config.json")
 
 if getattr(sys, 'frozen', False):
     BASE_DIR = sys._MEIPASS
@@ -36,7 +36,7 @@ def set_icon(win):
 
 def start_flask(api_key):
     os.environ["GROQ_API_KEY"] = api_key
-    os.environ["ECHO_BASE_DIR"] = BASE_DIR
+    os.environ["ELLIBRIA_BASE_DIR"] = BASE_DIR
     os.environ["SYSTEM_THEME"] = "dark" if is_windows_dark_mode() else "light"
     import app as flask_app
     flask_app.app.run(host="127.0.0.1", port=5000, debug=False, use_reloader=False)
@@ -44,7 +44,7 @@ def start_flask(api_key):
 def open_webview():
     import webview
     webview.create_window(
-        "Echo",
+        "Ellibria",
         "http://127.0.0.1:5000",
         width=1100,
         height=800,

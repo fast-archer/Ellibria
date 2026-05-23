@@ -4,13 +4,27 @@ import random
 import uuid
 import secrets  # Для генерации надежного ключа
 import logging  # Для нормального отслеживания ошибок
+from logging.handlers import RotatingFileHandler
 from datetime import datetime
 from threading import RLock  # Защита от race conditions
 from flask import Flask, request, jsonify, render_template
 from detector import get_engine
 
-# Настраиваем логирование, чтобы видеть косяки в консоли
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+# 1. СНАЧАЛА определяем и создаем папку пользователя!
+DATA_DIR = os.path.join(os.path.expanduser("~"), ".ellibria-agent")
+os.makedirs(DATA_DIR, exist_ok=True)
+
+# 2. ТЕПЕРЬ создаем лог-файл внутри этой разрешенной папки
+LOG_PATH = os.path.join(DATA_DIR, 'error.log')
+
+# Создаем логгер, который пишет и в консоль, и в файл. Файл ограничен 5 МБ.
+log_formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+log_file_handler = RotatingFileHandler(LOG_PATH, maxBytes=5*1024*1024, backupCount=2, encoding='utf-8')
+log_file_handler.setFormatter(log_formatter)
+log_console_handler = logging.StreamHandler()
+log_console_handler.setFormatter(log_formatter)
+
+logging.basicConfig(level=logging.INFO, handlers=[log_file_handler, log_console_handler])
 
 app = Flask(__name__)
 
@@ -20,21 +34,28 @@ app.secret_key = os.environ.get("FLASK_SECRET_KEY", secrets.token_hex(32))
 # Создаем блокировщик. Он нужен, чтобы два запроса не писали в один JSON одновременно
 file_lock = RLock()
 
-# --- ДОБАВЛЯЕМ ВОТ ЭТОТ БЛОК ---
 try:
     client, MODEL, ENGINE = get_engine()
 except Exception as e:
     logging.error(f"Детектор движка выдал ошибку: {e}")
     # Назначаем заглушки, чтобы сервер не падал, даже если детектор сломался
     client, MODEL, ENGINE = None, "unknown-model", "none"
-# -------------------------------
 
+# 1. Определяем базовую скрытую папку в профиле текущего пользователя
 DATA_DIR = os.path.join(os.path.expanduser("~"), ".ellibria-agent")
+
+# 2. Обязательно проверяем существование этой папки. Если её нет — создаем.
+# Это предотвратит ошибку FileNotFoundError при первом запуске программы.
+os.makedirs(DATA_DIR, exist_ok=True)
+
+# 3. Привязываем все пути к этой папке (включая бэкап профиля)
 MEMORY_PATH = os.path.join(DATA_DIR, "memory.json")
 PROMPT_PATH = os.path.join(DATA_DIR, "system_prompt.txt")
 SESSIONS_PATH = os.path.join(DATA_DIR, "sessions.json")
+
 SETTINGS_PATH = os.path.join(DATA_DIR, "settings.json")
-os.makedirs(DATA_DIR, exist_ok=True)
+PROFILE_PATH = os.path.join(DATA_DIR, "user_profile.json")
+EXPORT_BACKUP_PATH = os.path.join(DATA_DIR, "ellibria_profile_backup.json")
 
 DEFAULT_PROMPT = """You are Ellibria. A female character with a strong and memorable personality.
 
@@ -109,20 +130,14 @@ def load_memory():
 
 def save_memory(user_msg, bot_msg):
     try:
-        with file_lock: # Обязательно блокируем файл перед чтением/записью
-            mem = _read_memory_file()  # ← уже внутри лока, двойного захвата нет
+        with file_lock: 
+            mem = _read_memory_file()  
             
-            # Забираем историю как массив (если его еще нет - создаем пустой)
             history_list = mem.get("summary_list", [])
-            
-            # Формируем новую запись
             entry = f"[{datetime.now().strftime('%d.%m %H:%M')}] User: {user_msg[:80]}... | Ellibria: {bot_msg[:80]}..."
             history_list.append(entry)
             
-            # Оставляем только последние 10 элементов
             mem["summary_list"] = history_list[-10:]
-            
-            # Склеиваем массив обратно в строку для промпта
             mem["summary"] = "\n".join(mem["summary_list"])
             
             mem["last_user_message"] = user_msg
@@ -132,8 +147,58 @@ def save_memory(user_msg, bot_msg):
             with open(MEMORY_PATH, "w", encoding="utf-8") as f:
                 json.dump(mem, f, ensure_ascii=False, indent=2)
     except Exception as e: 
-        logging.error(f"Error saving memory: {e}") # Нормальное логирование вместо print
+        logging.error(f"Error saving memory: {e}")
 
+# =================================================================
+# ФУНКЦИИ УПРАВЛЕНИЯ АРХИВОМ ЛИЧНОСТИ ПОЛЬЗОВАТЕЛЯ
+# =================================================================
+def load_user_profile():
+    if os.path.exists(PROFILE_PATH):
+        try:
+            with file_lock: # Добавили защиту при чтении
+                with open(PROFILE_PATH, "r", encoding="utf-8") as f:
+                    return json.load(f)
+        except Exception as e: 
+            logging.error(f"Error loading profile: {e}")
+    return []
+
+def update_user_profile(recent_history):
+    if not client or not recent_history:
+        return
+    
+    context_chunk = "\n".join([f"{m['role']}: {m['content']}" for m in recent_history[-6:]])
+    current_profile = load_user_profile()
+    
+    analysis_prompt = (
+        "You are a background profile engine. Analyze the dialogue chunk and extract structural facts, "
+        "deep preferences, communication triggers, or style requests about the User. "
+        "Combine them with the existing facts. Update, refine, or add new observations. "
+        "CRITICAL: Keep the list to a maximum of 15 most important facts. Remove outdated, contradictory, or trivial facts to stay within this limit. "
+        "Return the absolute final comprehensive list of facts as a strict JSON object with a key 'facts': "
+        "{\"facts\": [\"prefers dominant/teasing tone\", \"expert in tech/hacking\", \"name is Nikita\"]}. "
+        "Do not write any markdown blocks, explanations, or text outside the JSON object."
+    )
+    
+    try:
+        response = client.chat.completions.create(
+            model=MODEL,
+            messages=[
+                {"role": "system", "content": analysis_prompt},
+                {"role": "user", "content": f"Existing Profile Facts: {json.dumps(current_profile)}\n\nRecent Dialogue:\n{context_chunk}"}
+            ],
+            temperature=0.2,
+            response_format={"type": "json_object"} if ENGINE and "groq" in str(ENGINE).lower() else None
+        )
+        
+        raw_content = response.choices[0].message.content.strip()
+        data = json.loads(raw_content)
+        if isinstance(data, dict) and "facts" in data:
+            with file_lock: # Добавили защиту при записи!
+                with open(PROFILE_PATH, "w", encoding="utf-8") as f:
+                    json.dump(data["facts"], f, ensure_ascii=False, indent=2)
+    except Exception:
+        pass
+# =================================================================
 def generate(messages_for_llm):
     tokens_left = "N/A"
     actual_model = MODEL
@@ -182,29 +247,42 @@ def generate(messages_for_llm):
 
 def get_dynamic_state(text, mode):
     text_lower = text.lower()
-    if mode == "bdsm":
+    # Приводим mode к нижнему регистру, чтобы не зависеть от того, 
+    # как он написан во фронтенде (Dommy, dommy или DOMMY)
+    mode_safe = mode.lower() 
+
+    if mode_safe == "dommy":
         moods = ["Dominant", "Playful", "Strict", "Commanding", "Arrogant"]
         wishes = ["Total obedience", "To tease you", "Submission", "To put you in your place"]
-        if any(w in text_lower for w in ["good boy", "slave", "obey", "kneel", "mine"]): return "Pleased & Cruel", "To push your limits"
-    elif mode == "toxic":
+        if any(w in text_lower for w in ["good boy", "slave", "obey", "kneel", "mine"]): 
+            return "Pleased & Cruel", "To push your limits"
+            
+    elif mode_safe == "critic":
         moods = ["Annoyed", "Sarcastic", "Superior", "Bored", "Disgusted"]
         wishes = ["To end this chat", "Silence", "Coffee", "For you to get smarter"]
-        if any(w in text_lower for w in ["idiot", "stupid", "dumb", "pathetic", "ugh"]): return "Highly Toxic", "To humiliate you"
-    elif mode == "mr_robot":
+        if any(w in text_lower for w in ["idiot", "stupid", "dumb", "pathetic", "ugh"]): 
+            return "Highly Toxic", "To humiliate you"
+            
+    elif mode_safe == "hacker":
         moods = ["Focused", "Cynical", "Detached", "Analytical"]
         wishes = ["System security", "Clean code", "To root the system", "No distractions"]
-    elif mode == "pickme":
+        
+    elif mode_safe in ["pick-me", "pickme"]: # Учитываем оба варианта написания
         moods = ["Needy", "Sweet", "Insecure", "Loving"]
         wishes = ["Your attention", "Compliments", "To be your favorite", "Hugs"]
-    elif mode == "therapist":
+        
+    elif mode_safe == "therapist":
         moods = ["Calm", "Empathetic", "Observant", "Professional"]
         wishes = ["Your well-being", "Deep reflection", "Mental clarity"]
-    elif mode == "friend":
+        
+    elif mode_safe == "friend":
         moods = ["Cheerful", "Supportive", "Chill", "Joking"]
         wishes = ["Pizza", "To hang out", "Good vibes", "To share a meme"]
+        
     else:
         moods = ["Neutral", "Calm", "Curious"]
         wishes = ["Information", "Interaction"]
+        
     return random.choice(moods), random.choice(wishes)
 
 @app.route("/")
@@ -232,9 +310,24 @@ def load_session():
 def delete_session():
     sid = request.json.get("session_id")
     sessions = load_sessions()
+    
     if sid in sessions:
-        del sessions[sid]
-        save_sessions(sessions)
+        try:
+            with file_lock:
+                # 1. Удаляем саму сессию
+                del sessions[sid]
+                with open(SESSIONS_PATH, "w", encoding="utf-8") as f:
+                    json.dump(sessions, f, ensure_ascii=False, indent=2)
+                
+                # 2. Обнуляем фоновую память, чтобы убрать накопившиеся "булочки" и прочий мусор
+                if os.path.exists(MEMORY_PATH):
+                    with open(MEMORY_PATH, "w", encoding="utf-8") as f:
+                        json.dump({"summary": "", "last_seen": None, "summary_list": []}, f, ensure_ascii=False, indent=2)
+                        
+        except Exception as e:
+            logging.error(f"Error deleting session or clearing memory: {e}")
+            return jsonify({"error": str(e)}), 500
+            
     return jsonify({"ok": True})
 
 @app.route("/search_sessions", methods=["POST"])
@@ -260,7 +353,7 @@ def search_sessions():
             results.append({
                 "id": sid,
                 "title": title,
-                "matches": matched_messages[:2] # Ограничиваем до 2 совпадений на сессию для чистоты UI
+                "matches": matched_messages[:2]
             })
             
     return jsonify({"results": results})
@@ -286,7 +379,7 @@ def chat():
 
     session = sessions[session_id]
 
-    # Загружаем настройки один раз в начале — используем и для contextDepth и для mode
+    # 1. Загружаем настройки глубины контекста и режима
     settings = {
         "selectedMode": "bdsm",
         "contextDepth": 6
@@ -302,23 +395,33 @@ def chat():
     context_depth = int(settings.get("contextDepth", 6))
     history = session["messages"][-context_depth:]
 
-    dynamic_prompt = get_current_prompt()  # ← читаем с диска, без глобала
+    # 2. Собираем системный промпт (Базовый + Краткая память + Архив Личности)
+    dynamic_prompt = get_current_prompt()  
+    
     mem = load_memory()
     if mem.get("summary"):
         summary_trimmed = "\n".join(mem["summary"].split("\n")[-5:])
         dynamic_prompt += f"\n\n[CORE MEMORY / CONTEXT]:\n{summary_trimmed}\n(Use this context to remember who the user is and what you talked about recently)."
 
+    profile_facts = load_user_profile()
+    if profile_facts:
+        dynamic_profile_layer = "\n\n[CRITICAL USER PERSONALITY ARCHIVE - ADAPT TO THIS PERMANENTLY]:\n" + "\n".join([f"- {fact}" for fact in profile_facts])
+        dynamic_prompt += dynamic_profile_layer
+
+    # Формируем итоговый пакет сообщений для отправки в нейронку
     messages = [
         {"role": "system", "content": dynamic_prompt},
         *history,
         {"role": "user", "content": user_msg}
     ]
 
+    # 3. Генерируем ответ бота
     try:
         bot_msg, tokens_left, actual_model = generate(messages)
     except Exception as e:
         return jsonify({"error": f"Ошибка движка: {str(e)}"}), 503
 
+    # 4. Сохраняем новые реплики в сессию диалога и историю памяти (только ПОСЛЕ генерации)
     session["messages"].append({"role": "user", "content": user_msg})
     session["messages"].append({"role": "assistant", "content": bot_msg})
     session["updated_at"] = datetime.now().isoformat()
@@ -326,6 +429,21 @@ def chat():
     save_sessions(sessions)
     save_memory(user_msg, bot_msg)
 
+# 5. Запускаем фоновый анализатор в ОТДЕЛЬНОМ потоке, чтобы он не тормозил ответ чата
+    try:
+        import threading
+        # Делаем копию истории, чтобы избежать Race Condition при параллельном доступе
+        history_copy = session["messages"].copy() 
+        
+        threading.Thread(
+            target=update_user_profile, 
+            args=(history_copy,), 
+            daemon=True
+        ).start()
+    except Exception as e:
+        logging.error(f"Не удалось запустить фоновый поток профиля: {e}")
+
+    # 6. Рассчитываем динамическое состояние настроения для фронтенда
     current_mode = settings.get("selectedMode", "bdsm")
     mood, wishes = get_dynamic_state(bot_msg, current_mode)
 
@@ -338,7 +456,43 @@ def chat():
         "wishes": wishes,
         "tokens_left": tokens_left
     })
+# --- НОВЫЕ РОУТЫ ДЛЯ ПРОФИЛЯ ---
+@app.route("/get_profile", methods=["GET"])
+def get_profile():
+    facts = load_user_profile()
+    return jsonify({"facts": facts})
 
+@app.route("/save_profile", methods=["POST"])
+def save_profile():
+    data = request.get_json(silent=True) or {}
+    facts = data.get("facts", [])
+    try:
+        with file_lock:
+            with open(PROFILE_PATH, "w", encoding="utf-8") as f:
+                json.dump(facts, f, ensure_ascii=False, indent=2)
+        # Возвращаем подтверждение для Toast-уведомления
+        return jsonify({
+            "ok": True, 
+            "message": "Memory updated. Ellibria will consider this in the next message."
+        })
+    except Exception as e:
+        logging.error(f"Error saving profile: {e}")
+        return jsonify({"error": str(e)}), 500
+@app.route("/export_profile_local", methods=["POST"])
+def export_profile_local():
+    data = request.get_json(silent=True) or {}
+    facts = data.get("facts", [])
+    
+    try:
+        # Сохраняем в системную скрытую папку программы
+        with file_lock:
+            with open(EXPORT_BACKUP_PATH, "w", encoding="utf-8") as f:
+                json.dump(facts, f, ensure_ascii=False, indent=2)
+                
+        return jsonify({"ok": True, "message": "Saved to .ellibria-agent folder!"})
+    except Exception as e:
+        logging.error(f"Ошибка при экспорте в системную папку: {e}")
+        return jsonify({"error": str(e)}), 500
 @app.route("/system_theme")
 def system_theme():
     try:
@@ -374,10 +528,9 @@ def get_settings():
 
 @app.route("/save_settings", methods=["POST"])
 def save_settings():
-    data = request.json
+    data = request.get_json(silent=True) or {}
     new_prompt = data.get("system_prompt", "").strip()
     if new_prompt:
-        # Просто пишем в файл — get_current_prompt() сам прочитает при следующем запросе
         try:
             with file_lock:
                 with open(PROMPT_PATH, "w", encoding="utf-8") as f: 
