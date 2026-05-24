@@ -139,6 +139,13 @@ window.addEventListener('DOMContentLoaded', () => {
         
         if(data.model) document.getElementById('val-model').textContent = data.model.toUpperCase();
         
+        // Загружаем последнюю мысль сразу при запуске программы
+        fetch('/get_dream').then(r => r.json()).then(d => {
+            if (d.thought && d.thought.trim() !== "") {
+                document.getElementById('val-wishes').textContent = d.thought;
+            }
+        }).catch(() => {});
+        
         loadSessionsList();
     }).catch(err => console.error("Error:", err));
 });
@@ -437,19 +444,17 @@ function exportProfile() {
         return;
     }
 
-    // Вместо скачивания отправляем запрос Python-серверу, чтобы он сохранил файл
-    fetch('/export_profile_local', {
+    // Отправляем запрос Python-серверу, чтобы ОН открыл окно сохранения
+    fetch('/export_profile_dialog', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ facts: currentProfileFacts })
     })
     .then(r => r.json())
     .then(data => {
-        if (data.ok) {
-            // Если Python успешно сохранил, показываем уведомление
+        // Показываем Toast с результатом (успех или отмена)
+        if (data.message) {
             showToast(data.message);
-        } else {
-            showToast("Error saving file. Check logs.");
         }
     })
     .catch(err => {
@@ -589,7 +594,7 @@ function renderMessageHTML(text, sender) {
     textDiv.className = 'msg-text';
     
     if (sender === 'echo') {
-    textDiv.innerHTML = marked.parse(text);
+    textDiv.innerHTML = DOMPurify.sanitize(marked.parse(text));
     textDiv.querySelectorAll('pre code').forEach((block) => {
         hljs.highlightElement(block);
     });
@@ -651,6 +656,23 @@ function renderMessageHTML(text, sender) {
 }
 
 let isGenerating = false;
+let attachedPhotoBase64 = null;
+let attachedPhotoMime = null;
+
+function handlePhoto(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        const result = e.target.result;
+        attachedPhotoBase64 = result.split(',')[1];
+        attachedPhotoMime = file.type;
+        document.getElementById('photo-btn').style.color = 'var(--accent)';
+        showToast('Image attached. Send your message.');
+    };
+    reader.readAsDataURL(file);
+    event.target.value = '';
+}
 
 function sendMessage() {
     if (isGenerating) return; // Блокируем отправку, если ИИ уже думает
@@ -677,10 +699,19 @@ function sendMessage() {
     box.appendChild(typingDiv);
     box.scrollTop = box.scrollHeight;
 
+    const chatPayload = { message: text, session_id: currentSessionId };
+    if (attachedPhotoBase64) {
+        chatPayload.image_base64 = attachedPhotoBase64;
+        chatPayload.image_mime = attachedPhotoMime;
+        attachedPhotoBase64 = null;
+        attachedPhotoMime = null;
+        document.getElementById('photo-btn').style.color = '';
+    }
+
     fetch('/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: text, session_id: currentSessionId })
+        body: JSON.stringify(chatPayload)
     })
     .then(r => r.json())
     .then(data => {
@@ -696,7 +727,16 @@ function sendMessage() {
         if (soundEnabled) speak(data.response);
         
         if (data.mood) document.getElementById('val-mood').textContent = data.mood;
-        if (data.wishes) document.getElementById('val-wishes').textContent = data.wishes;
+        
+        // Ждем 3 секунды, пока Python в фоне придумает мысль и запишет ее в файл
+        setTimeout(() => {
+            fetch('/get_dream').then(r => r.json()).then(d => {
+                if (d.thought && d.thought.trim() !== "") {
+                    document.getElementById('val-wishes').textContent = d.thought;
+                }
+            }).catch(() => {});
+        }, 3000);
+        
         if (data.model) document.getElementById('val-model').textContent = data.model.toUpperCase();
         
         if (data.tokens_left !== undefined && data.tokens_left !== "N/A") {
@@ -756,9 +796,11 @@ userInput.addEventListener('input', function() {
 
 userInput.addEventListener('keydown', function(e) {
     if (e.key === 'Enter' && !e.shiftKey) {
-    e.preventDefault();
-    sendMessage();
-    this.style.height = '38px';
+        e.preventDefault();
+        if (this.value.trim() !== '') { // Проверяем, что строка не пустая
+            sendMessage();
+            this.style.height = '38px';
+        }
     }
 });
 
