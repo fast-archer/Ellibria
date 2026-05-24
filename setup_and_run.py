@@ -246,21 +246,22 @@ def show_setup():
             render_info(groq_lines)
             link.config(text="→  console.groq.com")
             link.bind("<Button-1>", open_groq)
-            entry_frame.pack(padx=44, fill="x")
+            # Указываем Tkinter вставить фрейм строго ПЕРЕД кнопкой btn
+            entry_frame.pack(padx=44, fill="x", before=btn)  
             entry.config(state="normal")
             entry.config(fg=TEXT)
         elif p == "gemini":
             render_info(gemini_lines)
             link.config(text="→  aistudio.google.com/api-keys")
             link.bind("<Button-1>", open_gemini)
-            entry_frame.pack(padx=44, fill="x")
+            # Указываем Tkinter вставить фрейм строго ПЕРЕД кнопкой btn
+            entry_frame.pack(padx=44, fill="x", before=btn)  
             entry.config(state="normal")
             entry.config(fg=TEXT)
         elif p == "local":
             render_info(local_lines)
             link.config(text="")
-            entry.config(state="disabled")
-            entry.config(fg=DIM)
+            entry_frame.pack_forget()
 
     # ── Кнопка Launch ──
     btn = tk.Button(

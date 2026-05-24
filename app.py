@@ -751,37 +751,55 @@ def export_profile_dialog():
     data = request.get_json(silent=True) or {}
     facts = data.get("facts", [])
     
-    # Создаем скрытое окно Tkinter для вызова системного диалога
     import tkinter as tk
     from tkinter import filedialog
+    import queue
+    import threading
     
-    root = tk.Tk()
-    root.withdraw() # Прячем главное окно
-    root.attributes('-topmost', True) # Заставляем диалог появиться ПОВЕРХ окна чата
+    # Создаем потокобезопасную очередь для передачи результата из UI-потока
+    result_queue = queue.Queue()
     
-    # Вызываем системное окно сохранения
-    file_path = filedialog.asksaveasfilename(
-        defaultextension=".json",
-        filetypes=[("JSON files", "*.json")],
-        initialfile="ellibria_profile.json",
-        title="Export Profile Memory"
-    )
+    def run_dialog():
+        try:
+            root = tk.Tk()
+            root.withdraw()
+            root.attributes('-topmost', True)
+            
+            # На некоторых ПК без обновления главного цикла окно может зависнуть в памяти
+            root.update() 
+            
+            file_path = filedialog.asksaveasfilename(
+                defaultextension=".json",
+                filetypes=[("JSON files", "*.json")],
+                initialfile="ellibria_profile.json",
+                title="Export Profile Memory"
+            )
+            root.destroy()
+            result_queue.put(file_path)
+        except Exception as e:
+            result_queue.put(e)
+
+    # Запускаем диалог в безопасном режиме
+    t = threading.Thread(target=run_dialog)
+    t.start()
+    t.join() # Ждем завершения диалога
     
-    root.destroy() # Уничтожаем скрытое окно после выбора
+    file_path = result_queue.get()
     
+    if isinstance(file_path, Exception):
+        logging.error(f"Ошибка Tkinter диалога: {file_path}")
+        return jsonify({"error": str(file_path)}), 500
+        
     if not file_path:
-        # Если юзер нажал "Отмена"
         return jsonify({"ok": False, "message": "Export cancelled"})
         
     try:
-        # Python сам сохраняет файл туда, куда указал юзер!
         with file_lock:
             with open(file_path, "w", encoding="utf-8") as f:
                 json.dump(facts, f, ensure_ascii=False, indent=2)
-                
         return jsonify({"ok": True, "message": "Profile exported successfully!"})
     except Exception as e:
-        logging.error(f"Ошибка при экспорте: {e}")
+        logging.error(f"Ошибка при сохранении экспорта: {e}")
         return jsonify({"error": str(e)}), 500
 
 @app.route("/get_settings", methods=["GET"])

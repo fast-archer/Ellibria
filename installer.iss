@@ -1,10 +1,10 @@
 [Setup]
 AppName=Ellibria
-AppVersion=1.0
+AppVersion=1.4.0
 AppPublisher=NikitaKayakhov
 DefaultDirName={autopf}\Ellibria
 DefaultGroupName=Ellibria
-OutputBaseFilename=Ellibria Ai Installer
+OutputBaseFilename=Ellibria.v1.4.0
 OutputDir=.
 Compression=lzma
 SolidCompression=yes
