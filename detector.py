@@ -33,16 +33,33 @@ def _ping(url, timeout=2):
 def get_engine():
     """Возвращает (client, model, engine_name). Пробует варианты по приоритету."""
     from openai import OpenAI
+    import json # Добавили импорт для чтения настроек
     config = _load_config()
 
-    # 1. LM Studio
-    if _ping("http://localhost:1234"):
-        print("[AUTO] LM Studio обнаружен → локальная модель")
+    # 1. Читаем пользовательские настройки, если они есть
+    USER_SETTINGS_PATH = os.path.join(os.path.expanduser("~"), ".ellibria-agent", "settings.json")
+    user_lmstudio_url = config.LMSTUDIO_URL
+    user_ollama_url = config.OLLAMA_URL
+    
+    if os.path.exists(USER_SETTINGS_PATH):
+        try:
+            with open(USER_SETTINGS_PATH, "r", encoding="utf-8") as f:
+                user_data = json.load(f)
+                if "lmStudioUrl" in user_data: user_lmstudio_url = user_data["lmStudioUrl"]
+                if "ollamaUrl" in user_data: user_ollama_url = user_data["ollamaUrl"]
+        except Exception:
+            pass
+
+    # Извлекаем базовый URL для пинга (обрезаем /v1 или /api)
+    lm_ping = user_lmstudio_url.replace("/v1", "") if "/v1" in user_lmstudio_url else user_lmstudio_url
+    ol_ping = user_ollama_url.replace("/v1", "").replace("/api", "") if "/v1" in user_ollama_url else user_ollama_url
+
+    # 2. Проверка LM Studio
+    if _ping(lm_ping):
+        print(f"[AUTO] LM Studio обнаружен по адресу {lm_ping}")
         loaded_model = config.LOCAL_MODEL
         try:
-            # ВОТ ЭТА СТРОЧКА БЫЛА ПРОПУЩЕНА:
-            resp = requests.get("http://localhost:1234/v1/models", timeout=1.5)
-            
+            resp = requests.get(f"{lm_ping}/v1/models", timeout=1.5)
             if resp.status_code == 200:
                 models_info = resp.json()
                 if "data" in models_info and len(models_info["data"]) > 0:
@@ -51,28 +68,28 @@ def get_engine():
             pass 
 
         return (
-            OpenAI(base_url=config.LMSTUDIO_URL.strip(), api_key="lm-studio"),
+            OpenAI(base_url=user_lmstudio_url.strip(), api_key="lm-studio"),
             loaded_model,
             "LM Studio (local)"
         )
 
-    # 2. Ollama
-    if _ping("http://localhost:11434"):
-        print("[AUTO] Ollama обнаружен → локальная модель")
+    # 3. Проверка Ollama
+    if _ping(ol_ping):
+        print(f"[AUTO] Ollama обнаружен по адресу {ol_ping}")
         return (
-            OpenAI(base_url=config.OLLAMA_URL.strip(), api_key="ollama"),
+            OpenAI(base_url=user_ollama_url.strip(), api_key="ollama"),
             config.LOCAL_MODEL,
             "Ollama (local)"
         )
 
-    # 3. Gemini Flash
+    # 4. Проверка Gemini Flash
     if getattr(config, 'GEMINI_API_KEY', ''):
         print("[AUTO] Gemini Flash API")
         import google.generativeai as genai
         genai.configure(api_key=config.GEMINI_API_KEY)
         return None, config.GEMINI_MODEL, "Gemini Flash (cloud)"
 
-    # 4. Groq (по умолчанию, если ключ есть)
+    # 5. Проверка Groq
     if getattr(config, 'GROQ_API_KEY', ''):
         print("[AUTO] Groq API")
         return (

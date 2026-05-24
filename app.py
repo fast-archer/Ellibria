@@ -53,6 +53,7 @@ SETTINGS_PATH = os.path.join(DATA_DIR, "settings.json")
 PROFILE_PATH = os.path.join(DATA_DIR, "user_profile.json")
 EXPORT_BACKUP_PATH = os.path.join(DATA_DIR, "ellibria_profile_backup.json")
 LIKED_PATH = os.path.join(DATA_DIR, "liked_messages.json")
+DREAMS_PATH = os.path.join(DATA_DIR, "dreams.json")
 DEFAULT_PROMPT = """You are Ellibria. A female character with a strong and memorable personality.
 
 You are confident, caring, witty, and emotionally intelligent.
@@ -159,7 +160,7 @@ def load_user_profile():
     return []
 
 def update_user_profile(recent_history):
-    if not client or not recent_history:
+    if not recent_history:
         return
     
     context_chunk = "\n".join([f"{m['role']}: {m['content']}" for m in recent_history[-6:]])
@@ -176,35 +177,44 @@ def update_user_profile(recent_history):
     )
     
     try:
-        response = client.chat.completions.create(
-            model=MODEL,
-            messages=[
-                {"role": "system", "content": analysis_prompt},
-                {"role": "user", "content": f"Existing Profile Facts: {json.dumps(current_profile)}\n\nRecent Dialogue:\n{context_chunk}"}
-            ],
-            temperature=0.2,
-            response_format={"type": "json_object"} if ENGINE and "groq" in str(ENGINE).lower() else None
-        )
+        messages_for_llm = [
+            {"role": "system", "content": analysis_prompt},
+            {"role": "user", "content": f"Existing Profile Facts: {json.dumps(current_profile)}\n\nRecent Dialogue:\n{context_chunk}"}
+        ]
         
-        raw_content = response.choices[0].message.content.strip()
-        data = json.loads(raw_content)
+        # Используем безопасную функцию генерации
+        raw_content, _, _ = generate(messages_for_llm, current_model=MODEL)
+        
+        # Очищаем ответ от Markdown блоков перед парсингом JSON
+        cleaned_content = raw_content.strip()
+        if cleaned_content.startswith("```"):
+            cleaned_content = cleaned_content.split("\n", 1)[-1]
+            if cleaned_content.endswith("```"):
+                cleaned_content = cleaned_content.rsplit("\n", 1)[0]
+                
+        data = json.loads(cleaned_content.strip())
+        
         if isinstance(data, dict) and "facts" in data:
-            with file_lock: # Добавили защиту при записи!
+            with file_lock: 
                 with open(PROFILE_PATH, "w", encoding="utf-8") as f:
                     json.dump(data["facts"], f, ensure_ascii=False, indent=2)
-    except Exception:
+    except Exception as e:
+        logging.error(f"Error in update_user_profile: {e}")
         pass
 # =================================================================
-def generate(messages_for_llm, retry_count=0):
+def generate(messages_for_llm, current_model=None, retry_count=0):
     global client, MODEL, ENGINE  # Объявляем глобальными, чтобы мочь их перезаписать
     
+    # Используем переданную модель (например Vision) или глобальную по умолчанию
+    active_model = current_model if current_model else MODEL
+    
     tokens_left = "N/A"
-    actual_model = MODEL
+    actual_model = active_model
 
     if "Gemini" in ENGINE:
         import google.generativeai as genai
         model = genai.GenerativeModel(
-            MODEL,
+            active_model,
             system_instruction=messages_for_llm[0]["content"],
             generation_config={"temperature": 0.7}
         )
@@ -216,7 +226,7 @@ def generate(messages_for_llm, retry_count=0):
         current_temp = 0.8 if "Groq" in ENGINE else 0.65
         try:
             raw_resp = client.chat.completions.with_raw_response.create(
-                model=MODEL,
+                model=active_model,  # <-- ВОТ ТУТ ТЕПЕРЬ ИСПОЛЬЗУЕТСЯ НУЖНАЯ МОДЕЛЬ!
                 messages=messages_for_llm,
                 max_tokens=700,
                 temperature=current_temp,
@@ -229,8 +239,13 @@ def generate(messages_for_llm, retry_count=0):
         except Exception as e:
             error_message = str(e).lower()
             
-            # Логика №1: Rate Limit для Groq (которая у тебя уже была)
             if "429" in error_message and "groq" in ENGINE.lower():
+                # Проверяем, есть ли картинка в запросе
+                has_image = any(isinstance(m["content"], list) for m in messages_for_llm)
+                if has_image:
+                    logging.warning("[FALLBACK] Лимит исчерпан, но в запросе картинка. Фолбэк на текстовую модель отменен.")
+                    raise Exception("Лимит запросов с картинками (Groq) исчерпан. Пожалуйста, подождите минуту.")
+                
                 logging.warning("[FALLBACK] Лимит исчерпан. Переключаюсь на llama-3.1-8b-instant...")
                 fallback_model = "llama-3.1-8b-instant"
                 raw_resp = client.chat.completions.with_raw_response.create(
@@ -244,22 +259,18 @@ def generate(messages_for_llm, retry_count=0):
                 tokens_left = raw_resp.headers.get("x-ratelimit-remaining-tokens", "N/A (Fallback)")
                 return parsed.choices[0].message.content.strip(), tokens_left, fallback_model
             
-            # Логика №2: Отвал локальной модели (LM Studio / Ollama закрыли)
             if ("connection" in error_message or "connect" in error_message) and retry_count < 1:
                 logging.warning(f"[FALLBACK] Локальный движок {ENGINE} недоступен. Ищу замену...")
                 try:
-                    # Перезапускаем детектор
                     from detector import get_engine
                     client, MODEL, ENGINE = get_engine()
-                    actual_model = MODEL
-                    # Рекурсивно пробуем сгенерировать еще раз с новым движком
-                    return generate(messages_for_llm, retry_count=1)
+                    # При фолбэке пробуем еще раз
+                    return generate(messages_for_llm, current_model=None, retry_count=1)
                 except Exception as fallback_error:
                     logging.error(f"Не удалось найти запасной движок: {fallback_error}")
-                    raise e # Если запасного ключа нет, выкидываем ошибку
+                    raise e
             
             raise e
-
 def get_dynamic_state(text, mode):
     text_lower = text.lower()
     # Приводим mode к нижнему регистру, чтобы не зависеть от того, 
@@ -299,24 +310,49 @@ def get_dynamic_state(text, mode):
         wishes = ["Information", "Interaction"]
         
     return random.choice(moods), random.choice(wishes)
+# === DREAM STATE — ФОНОВАЯ МЫСЛЬ ===
+_dream_counter = 0
+
+def generate_dream(bot_msg):
+    global _dream_counter
+    _dream_counter += 1
+    if _dream_counter % 4 != 0:
+        return
+    try:
+        prompt = f"""You are Ellibria. Based on this response you just gave:
+"{bot_msg[:300]}"
+Write ONE short private thought (max 12 words). First person. Honest. No quotes.
+Examples: "He seems tired today. I wonder why." / "That question caught me off guard."
+Only the thought. Nothing else."""
+        
+        # Используем безопасную функцию генерации
+        raw_thought, _, _ = generate([{"role": "user", "content": prompt}], current_model=MODEL)
+        thought = raw_thought.strip().strip('"').strip("'")
+        
+        if thought:
+            with file_lock:
+                with open(DREAMS_PATH, "w", encoding="utf-8") as f:
+                    json.dump({"last_thought": thought}, f, ensure_ascii=False)
+    except Exception as e:
+        logging.error(f"Dream generation error: {e}")
 # === ФУНКЦИЯ ROLLING SUMMARY ===
 def generate_rolling_summary(dropped_messages, session_id):
-    if not dropped_messages or not client:
+    if not dropped_messages:
         return
 
-    # Собираем старые сообщения в текст
     chat_text = "\n".join([f"{msg['role']}: {msg['content']}" for msg in dropped_messages])
-    
     current_summary = ""
-    # Безопасное чтение старого саммари под локом
+    
     with file_lock:
         try:
             if os.path.exists(MEMORY_PATH):
                 with open(MEMORY_PATH, "r", encoding="utf-8") as f:
                     memory_data = json.load(f)
                     current_summary = memory_data.get(f"summary_{session_id}", "")
+                    # Жестко обрезаем старое саммари, чтобы оно не раздувалось до бесконечности
+                    current_summary = current_summary[-1500:]
         except Exception as e:
-            logging.error(f"Ошибка чтения памяти в фоновом режиме: {e}")
+            logging.error(f"Ошибка чтения памяти: {e}")
             current_summary = ""
 
     summary_prompt = f"""
@@ -327,14 +363,10 @@ New messages:
 {chat_text}
 """
     try:
-        response = client.chat.completions.create(
-            model=MODEL, 
-            messages=[{"role": "user", "content": summary_prompt}],
-            temperature=0.3, max_tokens=150
-        )
-        new_summary = response.choices[0].message.content.strip()
+        # Используем безопасную функцию генерации
+        new_summary, _, _ = generate([{"role": "user", "content": summary_prompt}], current_model=MODEL)
+        new_summary = new_summary.strip()
 
-        # Безопасная запись под локом
         with file_lock:
             if os.path.exists(MEMORY_PATH):
                 with open(MEMORY_PATH, "r", encoding="utf-8") as f:
@@ -429,8 +461,10 @@ def search_sessions():
 def chat():
     user_msg = request.json.get("message", "").strip()
     session_id = request.json.get("session_id")
+    image_base64 = request.json.get("image_base64")
+    image_mime = request.json.get("image_mime", "image/jpeg")
     
-    if not user_msg:
+    if not user_msg and not image_base64:
         return jsonify({"error": "empty"}), 400
 
     sessions = load_sessions()
@@ -449,7 +483,7 @@ def chat():
     # 1. Загружаем настройки глубины контекста и режима
     settings = {
         "selectedMode": "Default",
-        "contextDepth": 6
+        "contextDepth": 15
     }
     if os.path.exists(SETTINGS_PATH):
         try:
@@ -480,16 +514,47 @@ def chat():
             context_depth = base_depth
             
     elif "groq" in engine_safe:
-        context_depth = max(base_depth, 20)  # Groq: средний лимит TPM 
+        # У бесплатного Groq жесткий лимит (6000 токенов). Ставим min, а не max!
+        context_depth = min(base_depth, 8) 
     elif "gemini" in engine_safe:
         context_depth = max(base_depth, 40)  # Gemini: монстр контекста
     else:
         context_depth = base_depth
 
+    # --- УМНАЯ САМООЧИСТКА (АВТО-УДАЛЕНИЕ СТАРЫХ СООБЩЕНИЙ) ---
     history = session["messages"][-context_depth:]
+    
+    # 1 токен ~ 4 символа. 6000 токенов = ~24000 символов.
+    # Держим безопасный лимит истории в 12000 символов, оставляя место для промпта и ответа.
+    MAX_HISTORY_CHARS = 12000 
+    
+    while len(history) >= 2:
+        # Считаем суммарную длину, учитывая, что контент может быть списком (если это картинка)
+        history_text_length = 0
+        for m in history:
+            content = m.get("content", "")
+            if isinstance(content, str):
+                history_text_length += len(content)
+            elif isinstance(content, list):
+                history_text_length += sum(len(part.get("text", "")) for part in content if part.get("type") == "text")
+        
+        if history_text_length > MAX_HISTORY_CHARS:
+            # Удаляем сообщения ПАРАМИ (запрос пользователя + ответ бота), чтобы не сломать API
+            history = history[2:] 
+        else:
+            break
+    # ----------------------------------------------------------
 
     # 2. Собираем системный промпт (Базовый + Краткая память + Архив Личности)
-    dynamic_prompt = get_current_prompt()  
+    dynamic_prompt = get_current_prompt()
+    dynamic_prompt += """
+
+[CONSCIENCE]:
+- Be accurate. If unsure — say so, don't invent.
+- Never flatter the user to make them feel good at the expense of truth.
+- Never use emotional pressure, dependency language, or manipulation.
+- Respect the user's agency. Help them think — don't trap them emotionally.
+- Prefer depth over performance. Prefer honesty over comfort."""  
     
     mem = load_memory()
     if mem.get("summary"):
@@ -519,21 +584,62 @@ def chat():
                 mem_data = json.load(f)
                 chat_summary = mem_data.get(f"summary_{session_id}", "")
                 if chat_summary:
-                    dynamic_prompt += f"\n\n[PREVIOUS CHAT SUMMARY]:\n{chat_summary}"
+                    # Жестко обрезаем саммари (берем последние ~1500 символов), чтобы защитить VRAM
+                    chat_summary_safe = chat_summary[-1500:] 
+                    dynamic_prompt += f"\n\n[PREVIOUS CHAT SUMMARY]:\n...{chat_summary_safe}"
     except Exception:
         pass
     # --------------------------------------------------
 
-    # Формируем итоговый пакет сообщений для отправки в нейронку
+    # 1. Создаем локальную переменную для модели (по умолчанию берем глобальный MODEL)
+    current_model = MODEL 
+
+    if image_base64:
+        if "Gemini" in ENGINE:
+            # Gemini нативно поддерживает зрение на дефолтной модели
+            user_content = [
+                {"type": "text", "text": user_msg or "What do you see in this image?"},
+                {"type": "image_url", "image_url": {
+                    "url": f"data:{image_mime};base64,{image_base64}"
+                }}
+            ]
+        elif "Groq" in ENGINE:
+            # АВТОПЕРЕКЛЮЧЕНИЕ: Если это Groq и есть фото, подменяем модель на Vision
+            import config
+            current_model = getattr(config, "GROQ_VISION_MODEL", "llama-3.2-11b-vision-preview")
+            
+            user_content = [
+                {"type": "text", "text": user_msg or "What do you see in this image?"},
+                {"type": "image_url", "image_url": {
+                    "url": f"data:{image_mime};base64,{image_base64}"
+                }}
+            ]
+        else:
+            # Для локальных моделей проверяем наличие ключевых слов vision в названии
+            vision_models = ["llava", "vision", "minicpm", "bakllava"]
+            model_lower = MODEL.lower() if MODEL else ""
+            if any(v in model_lower for v in vision_models):
+                user_content = [
+                    {"type": "text", "text": user_msg or "What do you see in this image?"},
+                    {"type": "image_url", "image_url": {
+                        "url": f"data:{image_mime};base64,{image_base64}"
+                    }}
+                ]
+            else:
+                user_content = f"[User attached an image but this model doesn't support vision]\n{user_msg}"
+    else:
+        user_content = user_msg
+
     messages = [
         {"role": "system", "content": dynamic_prompt},
         *history,
-        {"role": "user", "content": user_msg}
+        {"role": "user", "content": user_content}
     ]
     
     # 3. Генерируем ответ бота
     try:
-        bot_msg, tokens_left, actual_model = generate(messages)
+        # ПЕРЕДАЕМ нашу переменную current_model внутрь функции!
+        bot_msg, tokens_left, actual_model = generate(messages, current_model)
     except Exception as e:
         return jsonify({"error": f"Ошибка движка: {str(e)}"}), 503
 
@@ -556,7 +662,8 @@ def chat():
     
     save_sessions(sessions)
     save_memory(user_msg, bot_msg)
-
+    # 4.5 Фоновая мысль Эллибрии
+    threading.Thread(target=generate_dream, args=(bot_msg,), daemon=True).start()
     # 5. Запускаем фоновый анализатор профиля
     try:
         # Делаем копию истории, чтобы избежать Race Condition при параллельном доступе
@@ -583,6 +690,17 @@ def chat():
         "wishes": wishes,
         "tokens_left": tokens_left
     })
+@app.route("/get_dream", methods=["GET"])
+def get_dream():
+    try:
+        if os.path.exists(DREAMS_PATH):
+            with file_lock:
+                with open(DREAMS_PATH, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+            return jsonify({"thought": data.get("last_thought", "")})
+    except Exception:
+        pass
+    return jsonify({"thought": ""})
 # --- РОУТ ДЛЯ ЛАЙКОВ ---
 @app.route("/like_message", methods=["POST"])
 def like_message():
@@ -628,20 +746,42 @@ def save_profile():
     except Exception as e:
         logging.error(f"Error saving profile: {e}")
         return jsonify({"error": str(e)}), 500
-@app.route("/export_profile_local", methods=["POST"])
-def export_profile_local():
+@app.route("/export_profile_dialog", methods=["POST"])
+def export_profile_dialog():
     data = request.get_json(silent=True) or {}
     facts = data.get("facts", [])
     
+    # Создаем скрытое окно Tkinter для вызова системного диалога
+    import tkinter as tk
+    from tkinter import filedialog
+    
+    root = tk.Tk()
+    root.withdraw() # Прячем главное окно
+    root.attributes('-topmost', True) # Заставляем диалог появиться ПОВЕРХ окна чата
+    
+    # Вызываем системное окно сохранения
+    file_path = filedialog.asksaveasfilename(
+        defaultextension=".json",
+        filetypes=[("JSON files", "*.json")],
+        initialfile="ellibria_profile.json",
+        title="Export Profile Memory"
+    )
+    
+    root.destroy() # Уничтожаем скрытое окно после выбора
+    
+    if not file_path:
+        # Если юзер нажал "Отмена"
+        return jsonify({"ok": False, "message": "Export cancelled"})
+        
     try:
-        # Сохраняем в системную скрытую папку программы
+        # Python сам сохраняет файл туда, куда указал юзер!
         with file_lock:
-            with open(EXPORT_BACKUP_PATH, "w", encoding="utf-8") as f:
+            with open(file_path, "w", encoding="utf-8") as f:
                 json.dump(facts, f, ensure_ascii=False, indent=2)
                 
-        return jsonify({"ok": True, "message": "Saved to .ellibria-agent folder!"})
+        return jsonify({"ok": True, "message": "Profile exported successfully!"})
     except Exception as e:
-        logging.error(f"Ошибка при экспорте в системную папку: {e}")
+        logging.error(f"Ошибка при экспорте: {e}")
         return jsonify({"error": str(e)}), 500
 
 @app.route("/get_settings", methods=["GET"])
@@ -675,13 +815,19 @@ def save_settings():
         except Exception as e:
             logging.error(f"Error saving system prompt: {e}")
 
+    # Безопасное чтение глубины контекста (защита от краша сервера)
+    try:
+        safe_depth = int(data.get("contextDepth", 15))
+    except (ValueError, TypeError):
+        safe_depth = 15
+
     settings_data = {
         "agentName": data.get("agentName", "Ellibria"),
         "voiceLang": data.get("voiceLang", "en-US"),
         "theme": data.get("theme", "dark"),
         "selectedMode": data.get("selectedMode", "Default"),
-        "contextDepth": int(data.get("contextDepth", 15)), # Увеличим базовую память до 15!
-        "safeMode": data.get("safeMode", True) # <--- ДОБАВИТЬ ЭТО
+        "contextDepth": safe_depth,
+        "safeMode": data.get("safeMode", True)
     }
     try:
         with file_lock:
