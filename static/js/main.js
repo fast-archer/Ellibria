@@ -825,3 +825,62 @@ function showToast(message) {
         toast.classList.remove("show");
     }, 3500);
 }
+// ── ГОЛОСОВОЙ ВВОД (STT) ──
+let recognition;
+let isRecording = false;
+
+function toggleSpeechRecognition() {
+    if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+        showToast("Voice input is not supported in this environment.");
+        return;
+    }
+
+    const micBtn = document.getElementById('mic-btn');
+
+    if (isRecording) {
+        recognition.stop();
+        return;
+    }
+
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    recognition = new SpeechRecognition();
+    
+    // Берет текущий язык из настроек интерфейса (en-US, ru-RU и т.д.)
+    recognition.lang = voiceLang; 
+    recognition.interimResults = true;
+    recognition.continuous = false;
+
+    const inputField = document.getElementById('user-input');
+
+    recognition.onstart = function() {
+        isRecording = true;
+        micBtn.style.color = '#ef4444'; // Кнопка становится красной при записи
+        showToast("Listening...");
+    };
+
+    recognition.onresult = function(event) {
+        let finalTranscript = '';
+        for (let i = event.resultIndex; i < event.results.length; ++i) {
+            if (event.results[i].isFinal) {
+                finalTranscript += event.results[i][0].transcript;
+            }
+        }
+        if (finalTranscript) {
+            // Добавляем текст с пробелом, если поле не пустое
+            inputField.value += (inputField.value.trim() ? ' ' : '') + finalTranscript;
+            inputField.style.height = 'auto';
+            inputField.style.height = (inputField.scrollHeight) + 'px';
+        }
+    };
+
+    recognition.onerror = function(event) {
+        showToast("Mic error: " + event.error);
+    };
+
+    recognition.onend = function() {
+        isRecording = false;
+        micBtn.style.color = ''; // Сбрасываем цвет обратно
+    };
+
+    recognition.start();
+}
