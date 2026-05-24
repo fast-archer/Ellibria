@@ -171,9 +171,9 @@
     
     .floating-status-bar { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; opacity: 0.7; transition: 0.3s; }
     .floating-status-bar:hover { opacity: 1; }
-    .status-pill { background: transparent; padding: 4px 10px; border-radius: 20px; font-size: 0.75rem; color: var(--text2); display: flex; align-items: center; gap: 6px; }
-    .status-pill svg { width: 13px; height: 13px; stroke: currentColor; }
-    .status-pill-val { color: var(--text); font-weight: 500; }
+    .status-pill { background: transparent; padding: 4px 10px; border-radius: 20px; font-size: 0.75rem; color: var(--text2); display: flex; align-items: center; gap: 6px; max-width: 100%; }
+    .status-pill svg { width: 13px; height: 13px; stroke: currentColor; flex-shrink: 0; }
+    .status-pill-val { color: var(--text); font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 180px; display: inline-block; vertical-align: bottom; }
 
     .chat-input-area { display: flex; gap: 12px; position: relative; }
     .input-field-container { 
@@ -206,20 +206,29 @@
       overflow-y: auto;
     }
     
-    #emoji-btn { 
-      position: absolute; 
-      right: 15px; 
-      bottom: 13px; /* Привязываем смайлик к низу, чтобы он не улетал вверх при расширении текста */
-      background: none; 
-      border: none; 
-      color: var(--text2); 
-      cursor: pointer; 
-      outline: none; 
-      padding: 4px; 
-      transition: 0.2s; 
+    /* Единый стиль для кнопок смайлика и фото, чтобы они были ровными */
+    #emoji-btn, #photo-btn {
+      position: absolute;
+      bottom: 13px;
+      background: transparent;
+      border: none;
+      color: var(--text2);
+      cursor: pointer;
+      padding: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 6px;
+      transition: color 0.2s;
     }
-    #emoji-btn:hover { color: var(--text); }
-    #emoji-btn svg { width: 22px; height: 22px; }
+    #emoji-btn { right: 15px; }
+    #photo-btn { right: 48px; }
+    #emoji-btn:hover, #photo-btn:hover { color: var(--text); }
+    #emoji-btn svg, #photo-btn svg {
+      width: 20px; 
+      height: 20px; 
+      stroke: currentColor;
+    }
 
     #emoji-picker { display: none; position: absolute; bottom: 65px; right: 0; background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; padding: 10px; width: 260px; box-shadow: 0 8px 24px rgba(0,0,0,0.3); z-index: 300; }
     .emoji-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; max-height: 150px; overflow-y: auto; font-size: 20px; user-select: none; }
@@ -335,6 +344,7 @@ input:checked + .slider:before { transform: translateX(18px); background-color: 
       <script src="{{ url_for('static', filename='js/marked.min.js') }}"></script>
 <link rel="stylesheet" href="{{ url_for('static', filename='js/github-dark.min.css') }}">
 <script src="{{ url_for('static', filename='js/highlight.min.js') }}"></script>
+<script src="{{ url_for('static', filename='js/purify.min.js') }}"></script>
 </head>
 <body>
 
@@ -400,9 +410,9 @@ input:checked + .slider:before { transform: translateX(18px); background-color: 
             <svg viewBox="0 0 24 24" fill="none"><path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>
             <span class="status-pill-val" id="val-mood">Neutral</span>
           </div>
-          <div class="status-pill" title="Wishes">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.5 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
-            <span class="status-pill-val" id="val-wishes">None</span>
+          <div class="status-pill" title="Last Thought">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+            <span class="status-pill-val" id="val-wishes">...</span>
           </div>
           <div class="status-pill" title="Mode">
             <svg viewBox="0 0 24 24" fill="none"><path d="M12 2a5 5 0 0 0-5 5v3H3v12h18V10h-4V7a5 5 0 0 0-5-5zM9 7a3 3 0 0 1 6 0v3H9V7zm10 13H5V12h14v8z"/></svg>
@@ -417,7 +427,12 @@ input:checked + .slider:before { transform: translateX(18px); background-color: 
         <div class="chat-input-area">
           <div class="input-field-container">
             <textarea id="user-input" class="input-field" placeholder="Type a message..." autocomplete="off" rows="1"></textarea>
-            
+            <input type="file" id="photo-input" accept="image/*" style="display:none" onchange="handlePhoto(event)">
+            <button id="photo-btn" onclick="document.getElementById('photo-input').click()" title="Attach image">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/>
+              </svg>
+            </button>
             <button id="emoji-btn" onclick="toggleEmojiPicker(event)" title="Emojis">
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <circle cx="12" cy="12" r="10"></circle><path d="M8 14s1.5 2 4 2 4-2 4-2"></path><line x1="9" y1="9" x2="9.01" y2="9"></line><line x1="15" y1="9" x2="15.01" y2="9"></line>
