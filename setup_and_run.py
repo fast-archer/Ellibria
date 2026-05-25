@@ -36,9 +36,22 @@ def set_icon(win):
 
 def start_flask(api_key, port=5000):
     if api_key:
-        os.environ["GROQ_API_KEY"] = api_key
+        # Умное определение провайдера по конфигу
+        provider = "groq" 
+        if os.path.exists(CONFIG_PATH):
+            with open(CONFIG_PATH, "r", encoding="utf-8") as f:
+                cfg = json.load(f)
+                provider = cfg.get("provider", "groq")
+        
+        if provider == "groq":
+            os.environ["GROQ_API_KEY"] = api_key
+        elif provider == "gemini":
+            os.environ["GEMINI_API_KEY"] = api_key
+            
     os.environ["ELLIBRIA_BASE_DIR"] = BASE_DIR
     os.environ["SYSTEM_THEME"] = "dark" if is_windows_dark_mode() else "light"
+    if BASE_DIR not in sys.path:
+        sys.path.insert(0, BASE_DIR)
     import app as flask_app
     flask_app.app.run(host="127.0.0.1", port=port, debug=False, use_reloader=False)
 
@@ -62,7 +75,8 @@ def save_and_launch(provider_var, key_entry, win):
             messagebox.showerror("Error", "Groq key must start with gsk_\nGet it at console.groq.com")
             return
         os.makedirs(os.path.dirname(CONFIG_PATH), exist_ok=True)
-        with open(CONFIG_PATH, "w") as f:
+        # ИСПРАВЛЕНИЕ: Добавлен явный encoding="utf-8" для надежной записи
+        with open(CONFIG_PATH, "w", encoding="utf-8") as f:
             json.dump({"provider": "groq", "groq_api_key": k}, f)
         os.environ["GROQ_API_KEY"] = k
         win.destroy()
@@ -73,15 +87,18 @@ def save_and_launch(provider_var, key_entry, win):
             messagebox.showerror("Error", "Please enter your Gemini API key.\nGet it at aistudio.google.com/api-keys")
             return
         os.makedirs(os.path.dirname(CONFIG_PATH), exist_ok=True)
-        with open(CONFIG_PATH, "w") as f:
+        # ИСПРАВЛЕНИЕ: Добавлен явный encoding="utf-8"
+        with open(CONFIG_PATH, "w", encoding="utf-8") as f:
             json.dump({"provider": "gemini", "gemini_api_key": k}, f)
         os.environ["GEMINI_API_KEY"] = k
         win.destroy()
-        launch("")
+        # ИСПРАВЛЕНИЕ: Передаем реальный ключ 'k' вместо пустой строки для симметрии
+        launch(k)
 
     elif provider == "local":
         os.makedirs(os.path.dirname(CONFIG_PATH), exist_ok=True)
-        with open(CONFIG_PATH, "w") as f:
+        # ИСПРАВЛЕНИЕ: Добавлен явный encoding="utf-8"
+        with open(CONFIG_PATH, "w", encoding="utf-8") as f:
             json.dump({"provider": "local"}, f)
         win.destroy()
         launch("")
@@ -246,7 +263,6 @@ def show_setup():
             render_info(groq_lines)
             link.config(text="→  console.groq.com")
             link.bind("<Button-1>", open_groq)
-            # Указываем Tkinter вставить фрейм строго ПЕРЕД кнопкой btn
             entry_frame.pack(padx=44, fill="x", before=btn)  
             entry.config(state="normal")
             entry.config(fg=TEXT)
@@ -254,7 +270,6 @@ def show_setup():
             render_info(gemini_lines)
             link.config(text="→  aistudio.google.com/api-keys")
             link.bind("<Button-1>", open_gemini)
-            # Указываем Tkinter вставить фрейм строго ПЕРЕД кнопкой btn
             entry_frame.pack(padx=44, fill="x", before=btn)  
             entry.config(state="normal")
             entry.config(fg=TEXT)
@@ -280,7 +295,7 @@ def show_setup():
 
 if __name__ == "__main__":
     if os.path.exists(CONFIG_PATH):
-        with open(CONFIG_PATH) as f:
+        with open(CONFIG_PATH, "r", encoding="utf-8") as f:
             cfg = json.load(f)
         provider = cfg.get("provider", "groq")
         if provider == "groq":
@@ -294,7 +309,8 @@ if __name__ == "__main__":
             key = cfg.get("gemini_api_key", "")
             if key:
                 os.environ["GEMINI_API_KEY"] = key
-                launch("")
+                # ИСПРАВЛЕНИЕ: Передаем реальный сохраненный ключ 'key' вместо пустой строки
+                launch(key)
             else:
                 show_setup()
         elif provider == "local":
