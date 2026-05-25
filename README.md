@@ -46,7 +46,7 @@ like a tool and more like a presence.
 
 1. Download **[Ellibria Installer.exe](https://github.com/fast-archer/Ellibria/releases)**
 2. Run the installer
-3. On first launch, enter your **[Groq API Key](https://console.groq.com/keys)**
+3. On first launch, enter your **[Groq API Key](https://console.groq.com/keys)**, **[Gemini API key](https://aistudio.google.com/api-keys)** or select a local model (before this, launch Lm studio or another program and load the model)
 4. Ellibria starts immediately — no additional setup required
 
 ### Linux / Arch Linux
