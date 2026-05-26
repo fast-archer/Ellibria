@@ -9,9 +9,12 @@ import time  # <-- ИСПРАВЛЕНИЕ: Добавлен модуль time д
 from logging.handlers import RotatingFileHandler
 from datetime import datetime
 from threading import RLock
+import requests
 from flask import Flask, request, jsonify, render_template
 from detector import get_engine
 
+# Безопасный импорт: если библиотеки нет или PyInstaller её не собрал, приложение всё равно запустится
+HAS_DDGS = True  # используем requests напрямую, без внешних библиотек
 # 1. СНАЧАЛА определяем и создаем папку пользователя!
 DATA_DIR = os.path.join(os.path.expanduser("~"), ".ellibria-agent")
 os.makedirs(DATA_DIR, exist_ok=True)
@@ -223,56 +226,97 @@ def update_user_profile(recent_history):
         logging.error(f"Error in update_user_profile: {e}")
         pass
 # =================================================================
-def generate(messages_for_llm, current_model=None, retry_count=0):
-    global client, MODEL, ENGINE  # Объявляем глобальными, чтобы мочь их перезаписать
-    
-    # Используем переданную модель (например Vision) или глобальную по умолчанию
+def web_search(query, max_results=3):
+    """Поиск через DuckDuckGo HTML без API и внешних библиотек"""
+    try:
+        import urllib.parse, re
+        q = urllib.parse.quote(query)
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "Accept-Language": "ru-RU,ru;q=0.9,en;q=0.8"
+        }
+        url = f"https://html.duckduckgo.com/html/?q={q}"
+        resp = requests.get(url, headers=headers, timeout=5)
+        if resp.status_code != 200:
+            logging.error(f"Search HTTP {resp.status_code}")
+            return ""
+        snippets = re.findall(r'class="result__snippet"[^>]*>(.*?)</a>', resp.text, re.DOTALL)
+        titles   = re.findall(r'class="result__a"[^>]*>(.*?)</a>', resp.text, re.DOTALL)
+        clean = lambda s: re.sub(r'<[^>]+>', '', s).replace('&amp;', '&').replace('&quot;', '"').strip()
+        results = []
+        for t, s in zip(titles[:max_results], snippets[:max_results]):
+            ct, cs = clean(t), clean(s)
+            if ct and cs:
+                results.append(f"- {ct}: {cs}")
+        return "\n".join(results) if results else ""
+    except Exception as e:
+        logging.error(f"Search error: {e}")
+        return ""
+
+def prepare_prompt_with_web(user_message):
+    """Проверяет, нужны ли свежие данные из сети"""
+    triggers = [
+        "погода", "найди", "новости", "поищи", "загугли", "гугл",
+        "search", "find", "news", "weather",
+        "кто такой", "что такое", "когда вышел", "сколько стоит",
+        "цена", "курс", "актер", "фильм", "сериал", "вышел",
+        "2024", "2025", "2026", "сейчас", "сегодня", "вчера",
+        "президент", "премьер", "министр", "выборы", "правительство",
+        "president", "prime minister", "election", "who is", "кто сейчас",
+        "кто стал", "победил", "выиграл", "чемпион", "рейтинг"
+    ]
+    msg_lower = user_message.lower()
+    if any(t in msg_lower for t in triggers):
+        logging.info(f"[SEARCH] Выполняю тихий поиск в сети для: {user_message}")
+        data = web_search(user_message)
+        if data:
+            return f"\n\n[SYSTEM NOTE - FRESH INTERNET DATA. This is current real-world information. Your training data may be outdated. ALWAYS prioritize this data over your internal knowledge when answering]:\n{data}"
+    return ""
+def generate(messages_for_llm, current_model=None, retry_count=0, max_tokens=400):
+    global client, MODEL, ENGINE
     active_model = current_model if current_model else MODEL
-    
     tokens_left = "N/A"
     actual_model = active_model
 
     if "Gemini" in ENGINE:
         import google.generativeai as genai
         
-        # Вспомогательная функция для конвертации структуры OpenAI (с картинками) в формат Gemini SDK
         def convert_content(content):
-            if isinstance(content, str):
-                return [content]
+            if isinstance(content, str): return [content]
             parts = []
             if isinstance(content, list):
                 for item in content:
-                    if item.get("type") == "text":
-                        parts.append(item.get("text", ""))
+                    if item.get("type") == "text": parts.append(item.get("text", ""))
                     elif item.get("type") == "image_url":
                         img_url = item.get("image_url", {}).get("url", "")
                         if "base64," in img_url:
                             header, b64_data = img_url.split("base64,", 1)
                             mime = header.split("data:", 1)[1].split(";", 1)[0]
                         else:
-                            b64_data = img_url
-                            mime = "image/jpeg"
-                        parts.append({
-                            "inline_data": {
-                                "mime_type": mime,
-                                "data": b64_data
-                            }
-                        })
+                            b64_data = img_url; mime = "image/jpeg"
+                        parts.append({"inline_data": {"mime_type": mime, "data": b64_data}})
             return parts
 
-        model = genai.GenerativeModel(
-            active_model,
-            system_instruction=messages_for_llm[0]["content"],
-            generation_config={"temperature": 0.7}
-        )
+        try:
+            # Магия Gemini: Включаем ИХ нативный Google Поиск!
+            model = genai.GenerativeModel(
+                active_model,
+                system_instruction=messages_for_llm[0]["content"],
+                tools='google_search_retrieval',
+                generation_config={"temperature": 0.7, "max_output_tokens": max_tokens}
+            )
+        except Exception:
+            # Фолбэк, если версия SDK старая
+            model = genai.GenerativeModel(
+                active_model,
+                system_instruction=messages_for_llm[0]["content"],
+                generation_config={"temperature": 0.7, "max_output_tokens": max_tokens}
+            )
         
         history = []
         for m in messages_for_llm[1:-1]:
             role = "user" if m["role"] == "user" else "model"
-            history.append({
-                "role": role,
-                "parts": convert_content(m["content"])
-            })
+            history.append({"role": role, "parts": convert_content(m["content"])})
             
         chat = model.start_chat(history=history)
         last_parts = convert_content(messages_for_llm[-1]["content"])
@@ -282,9 +326,9 @@ def generate(messages_for_llm, current_model=None, retry_count=0):
         current_temp = 0.8 if "Groq" in ENGINE else 0.65
         try:
             raw_resp = client.chat.completions.with_raw_response.create(
-                model=active_model,  # <-- ВОТ ТУТ ТЕПЕРЬ ИСПОЛЬЗУЕТСЯ НУЖНАЯ МОДЕЛЬ!
+                model=active_model,
                 messages=messages_for_llm,
-                max_tokens=400,
+                max_tokens=max_tokens, # <-- УПРАВЛЯЕТСЯ ИЗВНЕ
                 temperature=current_temp,
                 presence_penalty=0.3
             )
@@ -294,38 +338,23 @@ def generate(messages_for_llm, current_model=None, retry_count=0):
 
         except Exception as e:
             error_message = str(e).lower()
-            
             if "429" in error_message and "groq" in ENGINE.lower():
-                # Проверяем, есть ли картинка в запросе
                 has_image = any(isinstance(m["content"], list) for m in messages_for_llm)
                 if has_image:
-                    logging.warning("[FALLBACK] Лимит исчерпан, но в запросе картинка. Фолбэк на текстовую модель отменен.")
-                    raise Exception("Лимит запросов с картинками (Groq) исчерпан. Пожалуйста, подождите минуту.")
-                
-                logging.warning("[FALLBACK] Лимит исчерпан. Переключаюсь на llama-3.1-8b-instant...")
+                    raise Exception("Лимит запросов с картинками (Groq) исчерпан. Подождите минуту.")
                 fallback_model = "llama-3.1-8b-instant"
                 raw_resp = client.chat.completions.with_raw_response.create(
-                    model=fallback_model,
-                    messages=messages_for_llm,
-                    max_tokens=400,
-                    temperature=current_temp,
-                    presence_penalty=0.3
+                    model=fallback_model, messages=messages_for_llm,
+                    max_tokens=max_tokens, temperature=current_temp, presence_penalty=0.3
                 )
                 parsed = raw_resp.parse()
                 tokens_left = raw_resp.headers.get("x-ratelimit-remaining-tokens", "N/A (Fallback)")
                 return parsed.choices[0].message.content.strip(), tokens_left, fallback_model
             
             if ("connection" in error_message or "connect" in error_message) and retry_count < 1:
-                logging.warning(f"[FALLBACK] Локальный движок {ENGINE} недоступен. Ищу замену...")
-                try:
-                    from detector import get_engine
-                    client, MODEL, ENGINE = get_engine()
-                    # При фолбэке пробуем еще раз
-                    return generate(messages_for_llm, current_model=None, retry_count=1)
-                except Exception as fallback_error:
-                    logging.error(f"Не удалось найти запасной движок: {fallback_error}")
-                    raise e
-            
+                from detector import get_engine
+                client, MODEL, ENGINE = get_engine()
+                return generate(messages_for_llm, current_model=None, retry_count=1, max_tokens=max_tokens)
             raise e
 def get_dynamic_state(text, mode):
     text_lower = text.lower()
@@ -543,6 +572,7 @@ def chat():
     session_id = request.json.get("session_id")
     image_base64 = request.json.get("image_base64")
     image_mime = request.json.get("image_mime", "image/jpeg")
+    expert_mode = request.json.get("expert_mode", False) # <-- СЧИТЫВАЕМ ФЛАГ
     
     if not user_msg and not image_base64:
         return jsonify({"error": "empty"}), 400
@@ -563,7 +593,6 @@ def chat():
 
     session = sessions[session_id]
 
-    # 1. Загружаем настройки глубины контекста и режима
     settings = {
         "selectedMode": "Default",
         "contextDepth": 15
@@ -576,43 +605,39 @@ def chat():
         except Exception as e:
             logging.error(f"Error loading settings in chat: {e}")
 
-    base_depth = int(settings.get("contextDepth", 15)) # Теперь база по умолчанию 15 (для мощных ПК)
-    safe_mode = settings.get("safeMode", True) # Читаем состояние галочки
-    
+    base_depth = int(settings.get("contextDepth", 15)) 
+    safe_mode = settings.get("safeMode", True) 
     # === ДИНАМИЧЕСКАЯ ГЛУБИНА КОНТЕКСТА ===
     engine_safe = str(ENGINE).lower() if ENGINE else ""
     
-    if "local" in engine_safe or "lm studio" in engine_safe or "ollama" in engine_safe:
-        if safe_mode:
-            # Safe Mode ВКЛЮЧЕН: Жестко спасаем видеокарту (идеально для 3-4 ГБ VRAM)
-            model_safe = str(MODEL).lower() if MODEL else ""
-            if any(x in model_safe for x in ["7b", "8b", "9b", "llama", "mistral"]):
-                context_depth = min(base_depth, 6) 
-            elif any(x in model_safe for x in ["1b", "2b", "3b", "phi", "gemma", "qwen"]):
-                context_depth = min(base_depth, 12)
-            else:
-                context_depth = min(base_depth, 8)
-        else:
-            # Safe Mode ВЫКЛЮЧЕН: Пользователь уверен в своем ПК, отдаем всю базовую память!
-            context_depth = base_depth
-            
-    elif "groq" in engine_safe:
-        # У бесплатного Groq жесткий лимит (6000 токенов). Ставим min, а не max!
-        context_depth = min(base_depth, 8) 
-    elif "gemini" in engine_safe:
-        context_depth = max(base_depth, 40)  # Gemini: монстр контекста
-    else:
+    # === ЭКСПЕРТНЫЙ РЕЖИМ И ГЛУБИНА ===
+    if expert_mode:
         context_depth = base_depth
+        req_max_tokens = 2500 # Много памяти для ответа
+    else:
+        req_max_tokens = 400  # Стандартный короткий ответ
+        if "local" in engine_safe or "lm studio" in engine_safe or "ollama" in engine_safe:
+            if safe_mode:
+                model_safe = str(MODEL).lower() if MODEL else ""
+                if any(x in model_safe for x in ["7b", "8b", "9b", "llama", "mistral"]):
+                    context_depth = min(base_depth, 6) 
+                elif any(x in model_safe for x in ["1b", "2b", "3b", "phi", "gemma", "qwen"]):
+                    context_depth = min(base_depth, 12)
+                else:
+                    context_depth = min(base_depth, 8)
+            else:
+                context_depth = base_depth
+        elif "groq" in engine_safe:
+            context_depth = min(base_depth, 8) 
+        elif "gemini" in engine_safe:
+            context_depth = max(base_depth, 40)
+        else:
+            context_depth = base_depth
 
-    # --- УМНАЯ САМООЧИСТКА (АВТО-УДАЛЕНИЕ СТАРЫХ СООБЩЕНИЙ) ---
     history = session["messages"][-context_depth:]
-    
-    # 1 токен ~ 4 символа. 6000 токенов = ~24000 символов.
-    # Держим безопасный лимит истории в 12000 символов, оставляя место для промпта и ответа.
     MAX_HISTORY_CHARS = 12000 
     
     while len(history) >= 2:
-        # Считаем суммарную длину, учитывая, что контент может быть списком (если это картинка)
         history_text_length = 0
         for m in history:
             content = m.get("content", "")
@@ -622,29 +647,16 @@ def chat():
                 history_text_length += sum(len(part.get("text", "")) for part in content if part.get("type") == "text")
         
         if history_text_length > MAX_HISTORY_CHARS:
-            # Удаляем сообщения ПАРАМИ (запрос пользователя + ответ бота), чтобы не сломать API
             history = history[2:] 
         else:
             break
-    # ----------------------------------------------------------
 
-    # 2. Собираем системный промпт (Базовый + Краткая память + Архив Личности)
-    dynamic_prompt = get_current_prompt()
-    dynamic_prompt += """
+    from datetime import datetime
+    today_str = datetime.now().strftime("%d %B %Y, %A")
+    dynamic_prompt = f"[SYSTEM: Today's date is {today_str}. Use this as ground truth for any date-related questions.]\n\n" + get_current_prompt()
+    dynamic_prompt += """\n\n[CONSCIENCE]:\n- Be accurate. If unsure — say so, don't invent.\n- Never flatter the user to make them feel good at the expense of truth.\n- Never use emotional pressure, dependency language, or manipulation.\n- Respect the user's agency. Help them think — don't trap them emotionally.\n- Prefer depth over performance. Prefer honesty over comfort."""
 
-[CONSCIENCE]:
-- Be accurate. If unsure — say so, don't invent.
-- Never flatter the user to make them feel good at the expense of truth.
-- Never use emotional pressure, dependency language, or manipulation.
-- Respect the user's agency. Help them think — don't trap them emotionally.
-- Prefer depth over performance. Prefer honesty over comfort."""
-
-    dynamic_prompt += """
-
-[EMOTION SYSTEM]:
-At the very end of every response, append exactly one tag on a new line:
-[EMOTION: calm] or [EMOTION: playful] or [EMOTION: focused] or [EMOTION: warm] or [EMOTION: sharp] or [EMOTION: distant]
-Choose based on your actual tone in that response. No explanation. Just the tag."""  
+    dynamic_prompt += """\n\n[EMOTION SYSTEM]:\nAt the very end of every response, append exactly one tag on a new line:\n[EMOTION: calm] or [EMOTION: playful] or [EMOTION: focused] or [EMOTION: warm] or [EMOTION: sharp] or [EMOTION: distant]\nChoose based on your actual tone in that response. No explanation. Just the tag."""  
     
     mem = load_memory()
     if mem.get("summary"):
@@ -655,7 +667,7 @@ Choose based on your actual tone in that response. No explanation. Just the tag.
     if profile_facts:
         dynamic_profile_layer = "\n\n[USER PERSONALITY ARCHIVE]:\n" + "\n".join([f"- {fact}" for fact in profile_facts]) + "\n\nIMPORTANT: If the current conversation contains fresh information about the user that contradicts the archive — trust the conversation. The archive is a baseline, not a rigid rule."
         dynamic_prompt += dynamic_profile_layer
-    # --- ДОБАВЛЯЕМ ЛАЙКНУТЫЕ ПРИМЕРЫ ---
+
     try:
         if os.path.exists(LIKED_PATH):
             with file_lock:
@@ -666,35 +678,27 @@ Choose based on your actual tone in that response. No explanation. Just the tag.
                 dynamic_prompt += f"\n\n[STYLE EXAMPLES - USER LOVED THESE RESPONSES. Mirror this tone, length and style]:\n{examples}"
     except Exception:
         pass
-    # --------------------------------------------------
-    # --- ДОБАВЛЯЕМ СЖАТОЕ РЕЗЮМЕ ПРОШЛОГО РАЗГОВОРА ---
+
     try:
         if os.path.exists(MEMORY_PATH):
             with open(MEMORY_PATH, "r", encoding="utf-8") as f:
                 mem_data = json.load(f)
                 chat_summary = mem_data.get(f"summary_{session_id}", "")
                 if chat_summary:
-                    # Жестко обрезаем саммари (берем последние ~1500 символов), чтобы защитить VRAM
                     chat_summary_safe = chat_summary[-600:] 
                     dynamic_prompt += f"\n\n[PREVIOUS CHAT SUMMARY]:\n...{chat_summary_safe}"
     except Exception:
         pass
-    # --------------------------------------------------
 
-    # 1. Создаем локальную переменную для модели (по умолчанию берем глобальный MODEL)
     current_model = MODEL 
 
     if image_base64:
         if "Gemini" in ENGINE:
-            # Gemini нативно поддерживает зрение на дефолтной модели
             user_content = [
                 {"type": "text", "text": user_msg or "What do you see in this image?"},
-                {"type": "image_url", "image_url": {
-                    "url": f"data:{image_mime};base64,{image_base64}"
-                }}
+                {"type": "image_url", "image_url": {"url": f"data:{image_mime};base64,{image_base64}"}}
             ]
         elif "Groq" in ENGINE:
-            # АВТОПЕРЕКЛЮЧЕНИЕ: Если это Groq и есть фото, подменяем модель на Vision безопасным способом
             try:
                 from detector import _load_config
                 _cfg = _load_config()
@@ -704,25 +708,34 @@ Choose based on your actual tone in that response. No explanation. Just the tag.
             
             user_content = [
                 {"type": "text", "text": user_msg or "What do you see in this image?"},
-                {"type": "image_url", "image_url": {
-                    "url": f"data:{image_mime};base64,{image_base64}"
-                }}
+                {"type": "image_url", "image_url": {"url": f"data:{image_mime};base64,{image_base64}"}}
             ]
         else:
-            # Для локальных моделей проверяем наличие ключевых слов vision в названии
             vision_models = ["llava", "vision", "minicpm", "bakllava"]
             model_lower = MODEL.lower() if MODEL else ""
             if any(v in model_lower for v in vision_models):
                 user_content = [
                     {"type": "text", "text": user_msg or "What do you see in this image?"},
-                    {"type": "image_url", "image_url": {
-                        "url": f"data:{image_mime};base64,{image_base64}"
-                    }}
+                    {"type": "image_url", "image_url": {"url": f"data:{image_mime};base64,{image_base64}"}}
                 ]
             else:
                 user_content = f"[User attached an image but this model doesn't support vision]\n{user_msg}"
     else:
         user_content = user_msg
+
+    # --- ИНЖЕКТ ПОИСКА И ЭКСПЕРТНОГО ПРОМПТА ---
+    search_data = ""
+    if "gemini" not in engine_safe:
+        search_data = prepare_prompt_with_web(user_msg)
+        
+    if expert_mode:
+        dynamic_prompt += "\n\n[EXPERT MODE ACTIVATED]: The user requires a deep, comprehensive analysis. Ignore all brevity constraints. Think step-by-step. Provide thorough details, nuance, and explore the topic deeply."
+
+    if search_data:
+        if isinstance(user_content, str):
+            user_content += search_data
+        else:
+            user_content.append({"type": "text", "text": search_data})
 
     messages = [
         {"role": "system", "content": dynamic_prompt},
@@ -730,11 +743,8 @@ Choose based on your actual tone in that response. No explanation. Just the tag.
         {"role": "user", "content": user_content}
     ]
     
-    # 3. Генерируем ответ бота
     try:
-        # ПЕРЕДАЕМ нашу переменную current_model внутрь функции!
-        bot_msg, tokens_left, actual_model = generate(messages, current_model)
-        # Парсим emotion тег и убираем его из ответа
+        bot_msg, tokens_left, actual_model = generate(messages, current_model, max_tokens=req_max_tokens)
         import re as _re
         emotion_match = _re.search(r'\[EMOTION:\s*(\w+)\]', bot_msg)
         detected_emotion = emotion_match.group(1).lower() if emotion_match else "calm"
@@ -742,34 +752,27 @@ Choose based on your actual tone in that response. No explanation. Just the tag.
     except Exception as e:
         return jsonify({"error": f"Ошибка движка: {str(e)}"}), 503
 
-    # 4. Сохраняем новые реплики в сессию диалога и историю памяти
     session["messages"].append({"role": "user", "content": user_msg})
     session["messages"].append({"role": "assistant", "content": bot_msg})
     session["updated_at"] = datetime.now().isoformat()
     
-    # --- НОВАЯ ЛОГИКА ROLLING SUMMARY ---
-    # Мы больше не читаем context_depth из файла, а используем динамический, который вычислили выше!
-    max_messages = context_depth * 2 # Храним в буфере в 2 раза больше сообщений перед фоновым сжатием
+    max_messages = context_depth * 2 
     
     if len(session["messages"]) > max_messages:
         dropped_messages = session["messages"][:-max_messages]
-        # Запускаем фоновое сжатие
         threading.Thread(target=generate_rolling_summary, args=(dropped_messages, session_id)).start()
-        # Обрезаем сессию
         session["messages"] = session["messages"][-max_messages:]
-    # ------------------------------------
     
     save_sessions(sessions)
     save_memory(user_msg, bot_msg)
-    # 4.5 Фоновая мысль Эллибрии
+
     def delayed_dream():
         time.sleep(5)
         generate_dream(bot_msg)
     threading.Thread(target=delayed_dream, daemon=True).start()
-    # 5. Запускаем фоновый анализатор профиля
+
     try:
         history_copy = session["messages"].copy()
-        # Обновляем профиль только каждые 4 сообщения — экономим API вызов
         if len(session["messages"]) % 4 == 0:
             threading.Thread(
                 target=update_user_profile,
@@ -779,7 +782,6 @@ Choose based on your actual tone in that response. No explanation. Just the tag.
     except Exception as e:
         logging.error(f"Не удалось запустить фоновый поток профиля: {e}")
 
-    # 6. Рассчитываем динамическое состояние настроения для фронтенда
     current_mode = settings.get("selectedMode", "Default")
     mood, wishes = get_dynamic_state(bot_msg, current_mode)
 
@@ -872,64 +874,6 @@ def save_profile():
         logging.error(f"Error saving profile: {e}")
         return jsonify({"error": str(e)}), 500
 
-@app.route("/export_profile_dialog", methods=["POST"])
-def export_profile_dialog():
-    data = request.get_json(silent=True) or {}
-    facts = data.get("facts", [])
-    
-    import tkinter as tk
-    from tkinter import filedialog
-    import queue
-    import threading
-    
-    result_queue = queue.Queue()
-    
-    def run_dialog():
-        try:
-            root = tk.Tk()
-            root.withdraw()
-            root.attributes('-topmost', True)
-            
-            file_path = filedialog.asksaveasfilename(
-                defaultextension=".json",
-                filetypes=[("JSON files", "*.json")],
-                initialfile="ellibria_profile.json",
-                title="Export Profile Memory"
-            )
-            
-            # Важно: сначала отправляем путь, затем закрываем и завершаем цикл
-            result_queue.put(file_path)
-            root.quit()
-            root.destroy()
-        except Exception as e:
-            result_queue.put(e)
-
-    # Tkinter требует выполнения в отдельном потоке, если вызывается внутри Flask
-    t = threading.Thread(target=run_dialog)
-    t.start()
-    t.join(timeout=60)
-    if t.is_alive():
-        logging.warning("Диалог экспорта не закрылся за 60 секунд, прерываем.")
-        return jsonify({"ok": False, "message": "Export timed out"}), 408 
-    
-    file_path = result_queue.get()
-    
-    if isinstance(file_path, Exception):
-        logging.error(f"Ошибка Tkinter диалога: {file_path}")
-        return jsonify({"error": str(file_path)}), 500
-        
-    if not file_path:
-        return jsonify({"ok": False, "message": "Export cancelled"})
-        
-    try:
-        with file_lock:
-            # Обязательно сохраняем кодировку utf-8, чтобы избежать краша из-за кириллицы в путях Windows
-            with open(file_path, "w", encoding="utf-8") as f:
-                json.dump(facts, f, ensure_ascii=False, indent=2)
-        return jsonify({"ok": True, "message": "Profile exported successfully!"})
-    except Exception as e:
-        logging.error(f"Ошибка при сохранении экспорта: {e}")
-        return jsonify({"error": str(e)}), 500
 
 @app.route("/get_settings", methods=["GET"])
 def get_settings():
@@ -962,20 +906,32 @@ def save_settings():
         except Exception as e:
             logging.error(f"Error saving system prompt: {e}")
 
-    # Безопасное чтение глубины контекста (защита от краша сервера)
+    # Сначала читаем старые настройки, чтобы не затереть contextDepth
+    old_settings = {}
+    if os.path.exists(SETTINGS_PATH):
+        try:
+            with file_lock:
+                with open(SETTINGS_PATH, "r", encoding="utf-8") as f:
+                    old_settings = json.load(f)
+        except Exception:
+            pass
+
+    # Безопасное чтение глубины контекста (берем старое значение, если нового нет)
+    safe_depth = data.get("contextDepth", old_settings.get("contextDepth", 15))
     try:
-        safe_depth = int(data.get("contextDepth", 15))
+        safe_depth = int(safe_depth)
     except (ValueError, TypeError):
         safe_depth = 15
 
     settings_data = {
-        "agentName": data.get("agentName", "Ellibria"),
-        "voiceLang": data.get("voiceLang", "en-US"),
-        "theme": data.get("theme", "dark"),
-        "selectedMode": data.get("selectedMode", "Default"),
+        "agentName": data.get("agentName", old_settings.get("agentName", "Ellibria")),
+        "voiceLang": data.get("voiceLang", old_settings.get("voiceLang", "en-US")),
+        "theme": data.get("theme", old_settings.get("theme", "dark")),
+        "selectedMode": data.get("selectedMode", old_settings.get("selectedMode", "Default")),
         "contextDepth": safe_depth,
-        "safeMode": data.get("safeMode", True)
+        "safeMode": data.get("safeMode", old_settings.get("safeMode", True))
     }
+    
     try:
         with file_lock:
             with open(SETTINGS_PATH, "w", encoding="utf-8") as f: 
@@ -983,6 +939,36 @@ def save_settings():
     except Exception as e:
         logging.error(f"Error saving settings: {e}")
 
+    return jsonify({"ok": True})
+
+# === СИСТЕМА АВТООБНОВЛЕНИЙ ===
+@app.route("/check_update", methods=["GET"])
+def check_update():
+    CURRENT_VERSION = "v1.4.2" # Текущая версия программы
+    try:
+        resp = requests.get("https://api.github.com/repos/fast-archer/Ellibria/releases/latest", timeout=5)
+        if resp.status_code == 200:
+            data = resp.json()
+            latest_version = data.get("tag_name", "")
+            
+            # Проверяем, новее ли релиз на GitHub (сравниваем без "v")
+            if latest_version and latest_version.lower().strip('v') != CURRENT_VERSION.lower().strip('v'):
+                # Берем прямую ссылку на страницу релиза GitHub
+                release_url = data.get("html_url", "https://github.com/fast-archer/Ellibria/releases/latest")
+                return jsonify({"update_available": True, "version": latest_version, "url": release_url})
+                
+        return jsonify({"update_available": False})
+    except Exception as e:
+        logging.error(f"Update check error: {e}")
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/open_release", methods=["POST"])
+def open_release():
+    import webbrowser
+    url = request.json.get("url")
+    if url:
+        # Эта команда заставит Python открыть ссылку в стандартном браузере Windows
+        webbrowser.open(url)
     return jsonify({"ok": True})
 
 if __name__ == "__main__":

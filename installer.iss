@@ -1,10 +1,10 @@
 [Setup]
 AppName=Ellibria
-AppVersion=1.4.1
+AppVersion=1.4.2
 AppPublisher=NikitaKayakhov
-DefaultDirName={autopf}\Ellibria
+DefaultDirName={localappdata}\Ellibria\Application
 DefaultGroupName=Ellibria
-OutputBaseFilename=Ellibria.v1.4.1
+OutputBaseFilename=Ellibria.v1.4.2
 OutputDir=.
 Compression=lzma
 SolidCompression=yes
