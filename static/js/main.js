@@ -1,3 +1,19 @@
+    // ── ПЕРЕКЛЮЧАТЕЛЬ EXPERT MODE ──
+let isExpertMode = false;
+
+function toggleExpertMode() {
+    isExpertMode = !isExpertMode;
+    const btn = document.getElementById('expert-toggle-btn');
+    const label = document.getElementById('expert-label');
+    if (!btn || !label) return;
+    if (isExpertMode) {
+        btn.classList.add('expert');
+        label.textContent = 'Expert';
+    } else {
+        btn.classList.remove('expert');
+        label.textContent = 'Fast';
+    }
+}
     // ── СЛОВАРИ ХАРАКТЕРОВ ──────────────────────────────────
     const MODE_PROMPTS = {
       "Default": `You are Ellibria. A female character with a strong and memorable personality.
@@ -452,24 +468,17 @@ function exportProfile() {
         showToast("Profile is empty, nothing to export.");
         return;
     }
-
-    // Отправляем запрос Python-серверу, чтобы ОН открыл окно сохранения
-    fetch('/export_profile_dialog', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ facts: currentProfileFacts })
-    })
-    .then(r => r.json())
-    .then(data => {
-        // Показываем Toast с результатом (успех или отмена)
-        if (data.message) {
-            showToast(data.message);
-        }
-    })
-    .catch(err => {
-        console.error("Export error:", err);
-        showToast("System error during export.");
-    });
+    
+    // Создаем файл прямо в памяти интерфейса и скачиваем его
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(currentProfileFacts, null, 2));
+    const dlAnchorElem = document.createElement('a');
+    dlAnchorElem.setAttribute("href", dataStr);
+    dlAnchorElem.setAttribute("download", "ellibria_profile.json");
+    document.body.appendChild(dlAnchorElem); // Добавляем временно в DOM
+    dlAnchorElem.click();
+    document.body.removeChild(dlAnchorElem); // Убираем
+    
+    showToast("Profile exported successfully!");
 }
 
 function importProfile(event) {
@@ -791,7 +800,11 @@ function sendMessage() {
     box.appendChild(typingDiv);
     box.scrollTop = box.scrollHeight;
 
-    const chatPayload = { message: text, session_id: currentSessionId };
+    const chatPayload = { 
+        message: text, 
+        session_id: currentSessionId,
+        expert_mode: isExpertMode // Убедись, что эта строка есть!
+    };
     if (attachedPhotoBase64) {
         chatPayload.image_base64 = attachedPhotoBase64;
         chatPayload.image_mime = attachedPhotoMime;
@@ -1003,4 +1016,42 @@ function stopRecordingManually() {
     if (recognition) {
         recognition.stop();
     }
+}
+// === СИСТЕМА АВТООБНОВЛЕНИЙ ===
+function checkForUpdates() {
+    const btn = document.getElementById('update-btn');
+    const originalIcon = btn.innerHTML;
+    // Крутим лоадер на кнопке
+    btn.innerHTML = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="spin-anim"><circle cx="12" cy="12" r="10"></circle><path d="M12 6v6l4 2"></path></svg>`;
+    
+    fetch('/check_update')
+    .then(r => r.json())
+    .then(data => {
+        btn.innerHTML = originalIcon;
+        if (data.update_available) {
+            document.getElementById('update-version-text').textContent = `Ellibria version ${data.version} is available! Open browser to view release?`;
+            document.getElementById('update-overlay').classList.add('active');
+            
+            document.getElementById('confirm-update-btn').onclick = function() {
+                closeUpdateModal();
+                showToast("Opening GitHub release page...");
+                // Дергаем наш новый роут в Python, чтобы открыть браузер
+                fetch('/open_release', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ url: data.url })
+                });
+            };
+        } else {
+            showToast(data.error ? `Update Error: ${data.error}` : "You already have the latest version.");
+        }
+    })
+    .catch(err => {
+        btn.innerHTML = originalIcon;
+        showToast("Failed to connect to GitHub.");
+    });
+}
+
+function closeUpdateModal() {
+    document.getElementById('update-overlay').classList.remove('active');
 }
