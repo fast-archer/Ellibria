@@ -30,10 +30,35 @@ def _ping(url, timeout=2):
     except Exception:
         return False
 
+def _get_active_groq_model(api_key, fallback_model):
+    """Динамически запрашивает список активных моделей у Groq, предотвращая ошибку 404."""
+    try:
+        url = "https://api.groq.com/openai/v1/models"
+        headers = {
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json"
+        }
+        response = requests.get(url, headers=headers, timeout=3)
+        if response.status_code == 200:
+            models_data = response.json().get("data", [])
+            model_ids = [m["id"] for m in models_data if "embed" not in m["id"] and "guard" not in m["id"]]
+            
+            # Приоритетный выбор самых стабильных быстрых моделей
+            for preferred in ["llama-3.1-8b-instant", "llama-3.3-70b-versatile", "llama-3.1-70b-versatile"]:
+                if preferred in model_ids:
+                    return preferred
+            
+            if model_ids:
+                return model_ids[0]
+    except Exception:
+        pass
+    
+    return fallback_model
+
 def get_engine():
     """Возвращает (client, model, engine_name). Пробует варианты по приоритету."""
     from openai import OpenAI
-    import json # Добавили импорт для чтения настроек
+    import json
     config = _load_config()
 
     # 1. Читаем пользовательские настройки, если они есть
@@ -89,15 +114,17 @@ def get_engine():
         genai.configure(api_key=config.GEMINI_API_KEY)
         return None, config.GEMINI_MODEL, "Gemini Flash (cloud)"
 
-    # 5. Проверка Groq
-    if getattr(config, 'GROQ_API_KEY', ''):
+    # 5. Проверка Groq (теперь с авто-опросом моделей)
+    groq_key = getattr(config, 'GROQ_API_KEY', '')
+    if groq_key:
         print("[AUTO] Groq API")
+        active_groq_model = _get_active_groq_model(groq_key, config.GROQ_MODEL)
         return (
             OpenAI(
                 base_url="https://api.groq.com/openai/v1",
-                api_key=config.GROQ_API_KEY
+                api_key=groq_key
             ),
-            config.GROQ_MODEL,
+            active_groq_model,
             "Groq (cloud)"
         )
 

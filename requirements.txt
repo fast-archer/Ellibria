@@ -5,5 +5,3 @@ openai
 pywebview
 requests
 pypdf
-cffi
-pythonnet
